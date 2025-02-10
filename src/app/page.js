@@ -11,7 +11,7 @@ const LandingPage = () => {
       <div className="flex items-center gap-8">
         <div className="flex-shrink-0">
           <Link href="/" className="text-2xl font-bold text-indigo-600">
-            StartupSync
+            StartupNet
           </Link>
         </div>
       </div>
