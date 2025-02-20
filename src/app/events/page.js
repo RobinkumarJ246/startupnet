@@ -1,40 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { 
-  Calendar,
-  Users,
-  MapPin,
-  Search,
-  TrendingUp,
-  Star,
-  Clock,
-  Building2,
-  Sparkles,
-  Globe2,
-  MessageSquare,
-  Bell,
-  Menu,
-  Filter,
-  ChevronDown,
-  Share2,
-  MoreHorizontal,
-  CalendarRange,
-  BadgeCheck,
-  Laptop,
-  UserPlus,
-  Target,
-  Ticket,
-  Music,
-  Heart,
-  Briefcase,
-  Code,
-  Presentation,
-  Megaphone,
-  ChevronLeft,
-  ChevronRight
+  Calendar, Users, MapPin, Search, TrendingUp, Star, Clock, Building2, 
+  Sparkles, Globe2, Filter, ChevronDown, Share2, MoreHorizontal, 
+  CalendarRange, Code, Presentation, Target, Laptop, Megaphone, 
+  Briefcase, UserPlus, Music, Heart, ChevronLeft, ChevronRight, Ticket, Bell 
 } from 'lucide-react';
+
+// Utility function for Haversine distance calculation
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+// Mock user location (San Francisco)
+const userLocation = { lat: 37.7749, lng: -122.4194 };
 
 // Mock data generator for events
 const generateMockEvents = () => {
@@ -51,47 +40,45 @@ const generateMockEvents = () => {
   ];
 
   const locations = [
-    'San Francisco, CA',
-    'New York, NY',
-    'Boston, MA',
-    'Austin, TX',
-    'Virtual Event',
-    'Hybrid - London'
+    'San Francisco, CA', 'New York, NY', 'Boston, MA', 'Austin, TX', 
+    'Virtual Event', 'Hybrid - London'
   ];
 
   const tags = [
-    'Innovation',
-    'AI/ML',
-    'Blockchain',
-    'Web3',
-    'Sustainability',
-    'FinTech',
-    'Healthcare',
-    'EdTech',
-    'Social Impact',
-    'Networking',
-    'Career Growth',
-    'Startup'
+    'Innovation', 'AI/ML', 'Blockchain', 'Web3', 'Sustainability', 
+    'FinTech', 'Healthcare', 'EdTech', 'Social Impact', 'Networking', 
+    'Career Growth', 'Startup'
   ];
 
-  const mockEvents = [];
-  
-  for (let i = 1; i <= 20; i++) {
+  const today = new Date();
+  return Array.from({ length: 20 }, (_, i) => {
     const randomEventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
     const isVirtual = Math.random() > 0.7;
     const isHybrid = !isVirtual && Math.random() > 0.8;
     const mode = isVirtual ? 'Virtual' : isHybrid ? 'Hybrid' : 'In-Person';
-    
-    const event = {
-      id: i,
-      title: `${randomEventType.type} ${Math.random() > 0.5 ? '2025' : ''} - ${['Global', 'Tech', 'Innovation', 'Future'][Math.floor(Math.random() * 4)]} ${randomEventType.type}`,
-      description: `Join us for an exciting ${randomEventType.type.toLowerCase()} focusing on innovation and collaboration in the startup ecosystem`,
-      date: new Date(2025, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1),
+
+    const daysOffset = Math.random() * 90 - 30; // -30 to +60 days
+    const startDate = new Date(today.getTime() + daysOffset * 24 * 60 * 60 * 1000);
+    startDate.setHours(0, 0, 0, 0);
+
+    const isMultiDay = Math.random() < 0.3;
+    const endDate = isMultiDay
+      ? new Date(startDate.getTime() + (Math.floor(Math.random() * 3) + 1) * 24 * 60 * 60 * 1000)
+      : new Date(startDate);
+
+    const isReleased = Math.random() > 0.3;
+
+    return {
+      id: i + 1,
+      title: `${randomEventType.type} - ${['Global', 'Tech', 'Innovation', 'Future'][Math.floor(Math.random() * 4)]} ${randomEventType.type}`,
+      description: `Join us for an exciting ${randomEventType.type.toLowerCase()} focusing on innovation and collaboration.`,
+      startDate,
+      endDate,
       time: `${Math.floor(Math.random() * 12) + 1}:00 ${Math.random() > 0.5 ? 'AM' : 'PM'} EST`,
       location: locations[Math.floor(Math.random() * locations.length)],
       type: randomEventType.type,
       typeIcon: randomEventType.icon,
-      mode: mode,
+      mode,
       organizer: ['TechHub', 'StartupNet', 'InnovateNow', 'FutureWorks'][Math.floor(Math.random() * 4)],
       isSpotlight: Math.random() > 0.8,
       isTrending: Math.random() > 0.8,
@@ -99,19 +86,15 @@ const generateMockEvents = () => {
       tags: Array.from({ length: Math.floor(Math.random() * 3) + 2 }, () => 
         tags[Math.floor(Math.random() * tags.length)]
       ),
-      imageUrl: `https://cdn.textstudio.com/output/sample/normal/6/3/2/5/event-logo-182-5236.png`,
+      imageUrl: 'https://cdn.textstudio.com/output/sample/normal/6/3/2/5/event-logo-182-5236.png',
       price: Math.random() > 0.5 ? 'Free' : `$${Math.floor(Math.random() * 200) + 49}`,
       attendees: Math.floor(Math.random() * 1000) + 100,
       maxCapacity: Math.floor(Math.random() * 2000) + 500,
-      organization: {
-        name: ['TechHub', 'StartupNet', 'InnovateNow', 'FutureWorks'][Math.floor(Math.random() * 4)],
-        logo: '/api/placeholder/100/100'
-      }
+      lat: 37.7749 + (Math.random() - 0.5) * 0.1, // Around San Francisco
+      lng: -122.4194 + (Math.random() - 0.5) * 0.1,
+      isReleased,
     };
-    mockEvents.push(event);
-  }
-  
-  return mockEvents;
+  });
 };
 
 const EventsPage = () => {
@@ -124,15 +107,23 @@ const EventsPage = () => {
     type: [],
     mode: [],
     price: [],
-    date: null,
+    dateRange: { start: null, end: null },
+    duration: [],
+    location: false, // Changed to a boolean for simplicity
   });
+  const [locationSettings, setLocationSettings] = useState({
+    useDeviceLocation: true,
+    radius: 15, // in km
+  });
+  const [loading, setLoading] = useState(true);
 
   const eventsPerPage = 9;
   const sections = [
     { id: 'all', label: 'All Events', icon: Calendar },
     { id: 'featured', label: 'Featured', icon: Star },
+    { id: 'live', label: 'Live Now', icon: Sparkles },
     { id: 'upcoming', label: 'Upcoming', icon: CalendarRange },
-    { id: 'trending', label: 'Trending', icon: TrendingUp }
+    { id: 'trending', label: 'Trending', icon: TrendingUp },
   ];
 
   const filterOptions = {
@@ -144,49 +135,82 @@ const EventsPage = () => {
       { id: 'pitch-event', label: 'Pitch Event', icon: Megaphone },
       { id: 'job-fair', label: 'Job Fair', icon: Briefcase },
       { id: 'networking', label: 'Networking', icon: UserPlus },
-      { id: 'cultural', label: 'Cultural Event', icon: Music },
-      { id: 'non-profit', label: 'Non-Profit', icon: Heart }
+      { id: 'cultural-event', label: 'Cultural Event', icon: Music },
+      { id: 'non-profit', label: 'Non-Profit', icon: Heart },
     ],
     mode: [
       { id: 'in-person', label: 'In-Person', icon: MapPin },
       { id: 'virtual', label: 'Virtual', icon: Globe2 },
-      { id: 'hybrid', label: 'Hybrid', icon: Laptop }
+      { id: 'hybrid', label: 'Hybrid', icon: Laptop },
     ],
     price: [
       { id: 'free', label: 'Free', icon: Sparkles },
       { id: 'paid', label: 'Paid', icon: Ticket },
-      { id: 'early-bird', label: 'Early Bird', icon: Clock }
-    ]
+      { id: 'early-bird', label: 'Early Bird', icon: Clock },
+    ],
+    duration: [
+      { id: 'single-day', label: 'Single-Day', icon: Calendar },
+      { id: 'multi-day', label: 'Multi-Day', icon: CalendarRange },
+    ],
+    location: [
+      { id: 'location', label: 'Location', icon: MapPin },
+    ],
   };
 
   useEffect(() => {
-    // Simulate API call
+    setLoading(true);
     const fetchedEvents = generateMockEvents();
     setEvents(fetchedEvents);
+    setLoading(false);
   }, []);
 
-  // Filter and search logic
-  const filteredEvents = events.filter(event => {
-    const matchesSearch = searchQuery === '' || 
-      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredEvents = useMemo(() => {
+    return events.filter(event => {
+      const now = new Date();
+      const start = new Date(event.startDate);
+      const end = new Date(event.endDate);
+      const status = now < start ? 'upcoming' : now > end ? 'past' : 'live';
 
-    const matchesType = selectedFilters.type.length === 0 ||
-      selectedFilters.type.includes(event.type.toLowerCase());
+      const matchesSearch = !searchQuery || 
+        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    const matchesMode = selectedFilters.mode.length === 0 ||
-      selectedFilters.mode.includes(event.mode.toLowerCase());
+      const normalizedType = event.type.toLowerCase().replace(/\s+/g, '-');
+      const matchesType = !selectedFilters.type.length || 
+        selectedFilters.type.includes(normalizedType);
 
-    const matchesPrice = selectedFilters.price.length === 0 ||
-      (selectedFilters.price.includes('free') && event.price === 'Free') ||
-      (selectedFilters.price.includes('paid') && event.price !== 'Free') ||
-      (selectedFilters.price.includes('early-bird') && event.isEarlyBird);
+      const matchesMode = !selectedFilters.mode.length || 
+        selectedFilters.mode.includes(event.mode.toLowerCase());
 
-    return matchesSearch && matchesType && matchesMode && matchesPrice;
-  });
+      const matchesPrice = !selectedFilters.price.length || 
+        (selectedFilters.price.includes('free') && event.price === 'Free') ||
+        (selectedFilters.price.includes('paid') && event.price !== 'Free') ||
+        (selectedFilters.price.includes('early-bird') && event.isEarlyBird);
 
-  // Pagination
+      const matchesDate = !selectedFilters.dateRange.start || 
+        (start >= new Date(selectedFilters.dateRange.start) && 
+         (!selectedFilters.dateRange.end || end <= new Date(selectedFilters.dateRange.end)));
+
+      const matchesSection = activeSection === 'all' || 
+        (activeSection === 'featured' && event.isSpotlight) || 
+        (activeSection === 'trending' && event.isTrending) || 
+        (activeSection === 'live' && status === 'live') || 
+        (activeSection === 'upcoming' && status === 'upcoming');
+
+      const isSingleDay = start.getTime() === end.getTime();
+      const matchesDuration = !selectedFilters.duration.length ||
+        (selectedFilters.duration.includes('single-day') && isSingleDay) ||
+        (selectedFilters.duration.includes('multi-day') && !isSingleDay);
+
+      const referenceLocation = locationSettings.useDeviceLocation ? userLocation : userLocation; // Mocked for now
+      const matchesLocation = !selectedFilters.location || 
+        haversineDistance(referenceLocation.lat, referenceLocation.lng, event.lat, event.lng) <= locationSettings.radius;
+
+      return matchesSearch && matchesType && matchesMode && matchesPrice && matchesDate && matchesSection && matchesDuration && matchesLocation;
+    });
+  }, [events, searchQuery, selectedFilters, activeSection, locationSettings]);
+
   const totalPages = Math.ceil(filteredEvents.length / eventsPerPage);
   const currentEvents = filteredEvents.slice(
     (currentPage - 1) * eventsPerPage,
@@ -194,68 +218,70 @@ const EventsPage = () => {
   );
 
   const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const clearFilters = () => {
+    setSelectedFilters({
+      type: [],
+      mode: [],
+      price: [],
+      dateRange: { start: null, end: null },
+      duration: [],
+      location: false,
+    });
+    setLocationSettings({ useDeviceLocation: true, radius: 15 });
+    setSearchQuery('');
+  };
+
+  const toggleLocationFilter = () => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      location: !prev.location,
+    }));
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar component goes here - keeping existing navbar code */}
-      
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-indigo-600 to-purple-700 pt-24 pb-12 px-4">
+      <section className="bg-gradient-to-br from-indigo-600 to-purple-700 pt-24 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-bold text-white mb-4">
-              Discover & Join Amazing Events
-            </h1>
-            <p className="text-lg text-indigo-100 mb-8">
-              Connect with innovators, showcase your talents, and grow your network through exciting events in the startup ecosystem
-            </p>
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">
+            Discover & Join Amazing Events
+          </h1>
+          <p className="text-lg text-indigo-100 mb-8 max-w-2xl">
+            Connect with innovators, showcase your talents, and grow your network in the startup ecosystem.
+          </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
-              <Link
-                href="/host-event"
-                className="px-6 py-3 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-              >
-                <Calendar className="w-5 h-5" />
-                Host Event
-              </Link>
+          <div className="flex flex-col sm:flex-row gap-4 mb-8">
+            <Link
+              href="/host-event"
+              className="px-6 py-3 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 whitespace-nowrap focus:ring-2 focus:ring-indigo-300"
+              aria-label="Host an event"
+            >
+              <Calendar className="w-5 h-5" />
+              Host Event
+            </Link>
 
-              <div className="relative flex-1">
-                <Search className="w-5 h-5 absolute left-3 top-3.5 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search events, topics, tags..."
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 text-white placeholder-indigo-100 focus:outline-none focus:ring-2 focus:ring-white/50"
-                />
-              </div>
+            <div className="relative flex-1">
+              <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search events, topics, tags..."
+                className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
+                aria-label="Search events"
+              />
             </div>
-
-            {/* Quick Stats */}
-            {/*}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {[
-                { label: 'Active Events', value: '200+', icon: Calendar },
-                { label: 'Registered Users', value: '10K+', icon: Users },
-                { label: 'Cities', value: '50+', icon: MapPin },
-                { label: 'Organizations', value: '500+', icon: Building2 }
-              ].map((stat, index) => (
-                <div key={index} className="bg-white/10 rounded-lg p-4">
-                  <stat.icon className="w-6 h-6 text-indigo-200 mb-2" />
-                  <div className="text-2xl font-bold text-white">{stat.value}</div>
-                  <div className="text-sm text-indigo-200">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-            {*/}
           </div>
         </div>
       </section>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Section Tabs & Filters */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
@@ -263,11 +289,12 @@ const EventsPage = () => {
               <button
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
-                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 whitespace-nowrap transition-all ${
+                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 whitespace-nowrap transition-all duration-200 ${
                   activeSection === section.id
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 focus:ring-2 focus:ring-indigo-300'
                 }`}
+                aria-label={`Show ${section.label}`}
               >
                 <section.icon className="w-4 h-4" />
                 {section.label}
@@ -277,88 +304,225 @@ const EventsPage = () => {
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="px-4 py-2 bg-white rounded-lg font-medium flex items-center gap-2 hover:bg-gray-50"
+            className="px-4 py-2 bg-white rounded-lg font-medium flex items-center gap-2 hover:bg-gray-100 focus:ring-2 focus:ring-indigo-300 transition-all"
+            aria-expanded={showFilters}
+            aria-label="Toggle filters"
           >
             <Filter className="w-5 h-5" />
             Filters
-            <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} />
           </button>
         </div>
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white rounded-xl p-6 mb-8 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-xl p-6 mb-8 shadow-sm animate-slide-down">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+              {/* Filters */}
               {Object.entries(filterOptions).map(([category, options]) => (
                 <div key={category}>
-                  <h3 className="font-semibold text-gray-900 mb-3 capitalize">
-                    {category}
-                  </h3>
+                  <h3 className="font-semibold text-gray-900 mb-3 capitalize">{category}</h3>
                   <div className="flex flex-wrap gap-2">
                     {options.map((option) => (
                       <button
                         key={option.id}
                         onClick={() => {
-                          setSelectedFilters(prev => ({
-                            ...prev,
-                            [category]: prev[category].includes(option.id)
-                              ? prev[category].filter(id => id !== option.id)
-                              : [...prev[category], option.id]
-                          }));
+                          if (category === 'location') {
+                            toggleLocationFilter();
+                          } else {
+                            setSelectedFilters(prev => ({
+                              ...prev,
+                              [category]: prev[category].includes(option.id)
+                                ? prev[category].filter(id => id !== option.id)
+                                : [...prev[category], option.id]
+                            }));
+                          }
                         }}
-                        className={`px-3 py-1.5 rounded-lg font-medium text-sm flex items-center gap-1.5 transition-colors ${
-                          selectedFilters[category].includes(option.id)
+                        className={`px-3 py-1.5 rounded-lg font-medium text-sm flex items-center gap-1.5 transition-colors duration-200 ${
+                          (category === 'location' ? selectedFilters.location : selectedFilters[category].includes(option.id))
                             ? 'bg-indigo-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-2 focus:ring-indigo-300'
                         }`}
+                        aria-label={`Filter by ${option.label}`}
                       >
                         <option.icon className="w-4 h-4" />
                         {option.label}
                       </button>
                     ))}
                   </div>
+
+                  {/* Location Settings Sub-Panel */}
+                  {category === 'location' && selectedFilters.location && (
+                    <div className="mt-4 space-y-4 p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            checked={locationSettings.useDeviceLocation}
+                            onChange={() => setLocationSettings(prev => ({ ...prev, useDeviceLocation: true }))}
+                            className="form-radio"
+                          />
+                          Device Location
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            checked={!locationSettings.useDeviceLocation}
+                            onChange={() => setLocationSettings(prev => ({ ...prev, useDeviceLocation: false }))}
+                            className="form-radio"
+                          />
+                          Account Location
+                        </label>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Radius: {locationSettings.radius} km</label>
+                        <input
+                          type="range"
+                          min="5"
+                          max="50"
+                          step="5"
+                          value={locationSettings.radius}
+                          onChange={(e) => setLocationSettings(prev => ({ ...prev, radius: parseInt(e.target.value) }))}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
+
+              {/* Date Range Filter */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">Date Range</h3>
+                <div className="space-y-2">
+                  <input
+                    type="date"
+                    value={selectedFilters.dateRange.start || ''}
+                    onChange={(e) => setSelectedFilters(prev => ({
+                      ...prev,
+                      dateRange: { ...prev.dateRange, start: e.target.value || null }
+                    }))}
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-300"
+                    aria-label="Start date"
+                  />
+                  <input
+                    type="date"
+                    value={selectedFilters.dateRange.end || ''}
+                    onChange={(e) => setSelectedFilters(prev => ({
+                      ...prev,
+                      dateRange: { ...prev.dateRange, end: e.target.value || null }
+                    }))}
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-300"
+                    aria-label="End date"
+                  />
+                </div>
+              </div>
             </div>
+            <button
+              onClick={clearFilters}
+              className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+              aria-label="Clear all filters"
+            >
+              Clear Filters
+            </button>
           </div>
         )}
 
         {/* Events Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {currentEvents.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading events...</p>
+          </div>
+        ) : currentEvents.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600">No events found. Try adjusting your filters or search.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {currentEvents.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2">
+        {totalPages > 1 && !loading && (
+          <div className="flex justify-center items-center gap-2 flex-wrap">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100 hover:bg-gray-50 disabled:hover:bg-white"
+              className="p-2 rounded-lg border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100 hover:bg-gray-50 disabled:hover:bg-white focus:ring-2 focus:ring-indigo-300"
+              aria-label="Previous page"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                onClick={() => handlePageChange(page)}
-                className={`w-10 h-10 rounded-lg font-medium ${
-                  currentPage === page
-                    ? 'bg-indigo-600 text-white'
-                    : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            
+
+            {totalPages <= 5 ? (
+              Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
+                    currentPage === page
+                      ? 'bg-indigo-600 text-white'
+                      : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
+                  }`}
+                  aria-label={`Page ${page}`}
+                >
+                  {page}
+                </button>
+              ))
+            ) : (
+              <>
+                <button
+                  onClick={() => handlePageChange(1)}
+                  className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
+                    currentPage === 1
+                      ? 'bg-indigo-600 text-white'
+                      : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
+                  }`}
+                  aria-label="Page 1"
+                >
+                  1
+                </button>
+                {currentPage > 3 && <span className="text-gray-600">...</span>}
+                {Array.from({ length: 3 }, (_, i) => {
+                  const page = currentPage - 1 + i;
+                  return page > 1 && page < totalPages ? (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
+                        currentPage === page
+                          ? 'bg-indigo-600 text-white'
+                          : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
+                      }`}
+                      aria-label={`Page ${page}`}
+                    >
+                      {page}
+                    </button>
+                  ) : null;
+                })}
+                {currentPage < totalPages - 2 && <span className="text-gray-600">...</span>}
+                <button
+                  onClick={() => handlePageChange(totalPages)}
+                  className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
+                    currentPage === totalPages
+                      ? 'bg-indigo-600 text-white'
+                      : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
+                  }`}
+                  aria-label={`Page ${totalPages}`}
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
+
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100 hover:bg-gray-50 disabled:hover:bg-white"
+              className="p-2 rounded-lg border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100 hover:bg-gray-50 disabled:hover:bg-white focus:ring-2 focus:ring-indigo-300"
+              aria-label="Next page"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -370,18 +534,27 @@ const EventsPage = () => {
 };
 
 const EventCard = ({ event }) => {
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+  const now = new Date();
+  const start = new Date(event.startDate);
+  const end = new Date(event.endDate);
+  const status = now < start ? 'upcoming' : now > end ? 'past' : 'live';
+
+  const formatDateRange = (start, end, isReleased) => {
+    if (!isReleased) {
+      return 'Coming Soon';
+    }
+    const options = { month: 'short', day: 'numeric', year: 'numeric' };
+    if (start.getTime() === end.getTime()) {
+      return start.toLocaleDateString('en-US', options);
+    } else {
+      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', options)}`;
+    }
   };
 
   const TypeIcon = event.typeIcon;
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all group">
+    <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group">
       <div className="relative">
         <img
           src={event.imageUrl}
@@ -389,91 +562,102 @@ const EventCard = ({ event }) => {
           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        
-        {/* Event Badges */}
+
         <div className="absolute top-4 right-4 flex flex-row gap-2">
           {event.isSpotlight && (
-            <div className="px-3 py-1 bg-yellow-400 text-yellow-900 text-sm font-medium rounded-full flex items-center gap-1">
+            <span className="px-3 py-1 bg-yellow-400 text-yellow-900 text-sm font-medium rounded-full flex items-center gap-1">
               <Star className="w-4 h-4" />
               Featured
-            </div>
+            </span>
           )}
           {event.isTrending && (
-            <div className="px-3 py-1 bg-rose-500 text-white text-sm font-medium rounded-full flex items-center gap-1">
+            <span className="px-3 py-1 bg-rose-500 text-white text-sm font-medium rounded-full flex items-center gap-1">
               <TrendingUp className="w-4 h-4" />
               Trending
-            </div>
+            </span>
           )}
           {event.isEarlyBird && (
-            <div className="px-3 py-1 bg-green-500 text-white text-sm font-medium rounded-full flex items-center gap-1">
+            <span className="px-3 py-1 bg-green-500 text-white text-sm font-medium rounded-full flex items-center gap-1">
               <Clock className="w-4 h-4" />
               Early Bird
-            </div>
+            </span>
           )}
         </div>
-        
-        {/* Event Title & Description */}
+
         <div className="absolute bottom-4 left-4 right-4">
-          <h3 className="text-xl font-bold text-white mb-2">{event.title}</h3>
+          <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">{event.title}</h3>
           <p className="text-gray-200 text-sm line-clamp-2">{event.description}</p>
         </div>
       </div>
 
       <div className="p-6">
-        {/* Event Details */}
-        <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-6">
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
+        <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-6">
+          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
             <Calendar className="w-4 h-4 text-indigo-600" />
-            <span>{formatDate(event.date)}</span>
-          </div>
-          
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
+            {formatDateRange(start, end, event.isReleased)}
+          </span>
+          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
             <MapPin className="w-4 h-4 text-indigo-600" />
-            <span>{event.location}</span>
-          </div>
-          
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
+            {event.location}
+          </span>
+          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
             <TypeIcon className="w-4 h-4 text-indigo-600" />
-            <span>{event.type}</span>
-          </div>
-
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
+            {event.type}
+          </span>
+          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
             <Users className="w-4 h-4 text-indigo-600" />
-            <span>{event.attendees} / {event.maxCapacity}</span>
-          </div>
+            {event.attendees} / {event.maxCapacity}
+          </span>
         </div>
 
- {/* Event Tags */}
-<div className="flex gap-2 mb-6 flex-wrap">
-  {event.tags.map((tag, index) => (
-    <span
-      // Use combination of event.id and index for unique key
-      key={`${event.id}-tag-${index}`}
-      className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full hover:bg-gray-200 transition-colors cursor-pointer"
-    >
-      {tag}
-    </span>
-  ))}
-</div>
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {event.tags.map((tag, index) => (
+            <span
+              key={`${event.id}-tag-${index}`}
+              className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full hover:bg-gray-200 transition-colors duration-200 cursor-pointer"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
 
-        {/* Action Buttons */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors">
-              Register
-            </button>
-            <button className="p-2.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+            {status === 'upcoming' ? (
+              <button
+                onClick={() => alert('Notification set for this event!')}
+                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 transition-all duration-200 flex items-center gap-2"
+                aria-label={`Set notification for ${event.title}`}
+              >
+                <Bell className="w-5 h-5" />
+                Notify
+              </button>
+            ) : (
+              <Link
+                href={`/register-event/${event.id}`}
+                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 transition-all duration-200 flex items-center gap-2"
+                aria-label={`Register for ${event.title}`}
+              >
+                <Ticket className="w-5 h-5" />
+                Register
+              </Link>
+            )}
+            <button
+              className="p-2.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300 transition-all duration-200"
+              aria-label={`Share ${event.title}`}
+            >
               <Share2 className="w-5 h-5" />
             </button>
           </div>
-          
+
           <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${
-              event.price === 'Free' ? 'text-green-600' : 'text-gray-900'
-            }`}>
+            <span className={`text-sm font-medium ${event.price === 'Free' ? 'text-green-600' : 'text-gray-900'}`}>
               {event.price}
             </span>
-            <button className="p-2.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+            <button
+              className="p-2.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300 transition-all duration-200"
+              aria-label="More options"
+            >
               <MoreHorizontal className="w-5 h-5" />
             </button>
           </div>
@@ -482,5 +666,29 @@ const EventCard = ({ event }) => {
     </div>
   );
 };
+
+/* Custom Tailwind animations */
+const styles = `
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-down {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out;
+  }
+  .animate-slide-down {
+    animation: slide-down 0.3s ease-out;
+  }
+`;
+
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = styles;
+  document.head.appendChild(styleSheet);
+}
 
 export default EventsPage;
