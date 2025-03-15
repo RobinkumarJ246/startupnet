@@ -10,7 +10,11 @@
   },
   "dependencies": {
     "@heroicons/react": "v1",
+<<<<<<< HEAD
     "framer-motion": "^12.4.7",
+=======
+    "jose": "^6.0.8",
+>>>>>>> c2155c7d04c113fe63f9b5813c38edb79ec12da2
     "lucide-react": "^0.475.0",
     "next": "15.1.6",
     "react": "^19.0.0",
