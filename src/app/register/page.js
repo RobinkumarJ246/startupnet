@@ -1,6 +1,6 @@
 // pages/register.js
 'use client'
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -21,7 +21,7 @@ import {
   Check
 } from 'lucide-react';
 
-export default function Register() {
+function Registerform() {
 
 const searchParams = useSearchParams();
 const type = searchParams.get('type');
@@ -765,6 +765,18 @@ const type = searchParams.get('type');
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+          <Registerform />
+        </Suspense>
       </div>
     </div>
   );
