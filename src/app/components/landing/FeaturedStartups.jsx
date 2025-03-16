@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Rocket, Users, Briefcase, Award, Zap, Globe } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, Rocket, Users, Briefcase, Award, Zap, Globe, Star, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 
 // Startup showcase data
 const featuredStartups = [
   {
-    name: "TechVision AI",
-    logo: "/images/startup1.png",
-    description: "Building the future of computer vision with advanced AI algorithms and real-time processing.",
-    category: "Artificial Intelligence",
+    name: "Upcheck India",
+    logo: "/images/upcheck_logo.ico",
+    description: "Smart aquaculture management platform to optimize shrimp farming",
+    category: "Aquaculture tech",
     openRoles: 3,
-    color: "from-blue-600 to-indigo-600",
-    highlight: "Featured in TechCrunch",
-    icon: Rocket
+    color: "from-blue-700 to-teal-600",
+    highlight: "Spotlight",
+    fallbackIcon: Rocket
   },
   {
     name: "CloudScale",
@@ -20,9 +21,9 @@ const featuredStartups = [
     description: "Revolutionary cloud infrastructure solutions that scale with your business needs and optimize costs.",
     category: "Cloud Computing",
     openRoles: 5,
-    color: "from-cyan-600 to-blue-600",
+    color: "from-blue-700 to-orange-600",
     highlight: "Series A Funded",
-    icon: Globe
+    fallbackIcon: Globe
   },
   {
     name: "EcoTech",
@@ -32,12 +33,20 @@ const featuredStartups = [
     openRoles: 2,
     color: "from-green-600 to-teal-600",
     highlight: "Award Winning",
-    icon: Zap
+    fallbackIcon: Zap
   }
 ];
 
 export default function FeaturedStartups() {
   const [activeStartup, setActiveStartup] = useState(null);
+  const [logoError, setLogoError] = useState({});
+
+  const handleLogoError = (index) => {
+    setLogoError(prev => ({
+      ...prev,
+      [index]: true
+    }));
+  };
 
   return (
     <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
@@ -54,19 +63,30 @@ export default function FeaturedStartups() {
 
         <div className="grid md:grid-cols-3 gap-8">
           {featuredStartups.map((startup, index) => {
-            const Icon = startup.icon;
+            const FallbackIcon = startup.fallbackIcon || Star;
             return (
               <div 
                 key={index} 
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative"
                 onMouseEnter={() => setActiveStartup(index)}
                 onMouseLeave={() => setActiveStartup(null)}
               >
                 <div className={`h-2 bg-gradient-to-r ${startup.color}`}></div>
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${startup.color} flex items-center justify-center`}>
-                      <Icon className="h-6 w-6 text-white" />
+                    <div className={`w-12 h-12 rounded-lg ${logoError[index] ? `bg-gradient-to-r ${startup.color} flex items-center justify-center` : 'relative overflow-hidden'}`}>
+                      {logoError[index] ? (
+                        <FallbackIcon className="h-6 w-6 text-white" />
+                      ) : (
+                        <Image 
+                          src={startup.logo} 
+                          alt={`${startup.name} logo`}
+                          width={48}
+                          height={48}
+                          className="object-contain"
+                          onError={() => handleLogoError(index)}
+                        />
+                      )}
                     </div>
                     <span className="px-3 py-1 bg-indigo-100 text-indigo-600 rounded-full text-xs font-medium">
                       {startup.category}
