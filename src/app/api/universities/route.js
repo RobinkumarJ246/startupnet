@@ -155,10 +155,8 @@ export async function GET(request) {
     const state = searchParams.get('state');
     const district = searchParams.get('district');
     
-    // Path to the CSV file
-    const filePath = path.join(process.cwd(), 'src', 'app', 'utils', 'univ-col-india-db.csv');
-    
     // Read the CSV file
+    const filePath = path.join(process.cwd(), 'src', 'app', 'utils', 'univ-col-india-db.csv');
     const fileContent = fs.readFileSync(filePath, 'utf8');
     
     // Parse the CSV data
@@ -172,16 +170,16 @@ export async function GET(request) {
     
     // Determine the column names based on the actual CSV structure
     const stateColumn = Object.keys(firstRecord).find(key => 
-      key.toLowerCase().includes('state') || key === 'State'
-    ) || 'State';
+      key.toLowerCase().includes('state') || key === 'State Name'
+    ) || 'State Name';
     
     const districtColumn = Object.keys(firstRecord).find(key => 
-      key.toLowerCase().includes('district') || key === 'District'
-    ) || 'District';
+      key.toLowerCase().includes('district') || key === 'District Name'
+    ) || 'District Name';
     
     const universityColumn = Object.keys(firstRecord).find(key => 
-      key.toLowerCase().includes('university') || key === 'University'
-    ) || 'University';
+      key.toLowerCase().includes('university') || key === 'University Name'
+    ) || 'University Name';
     
     // Filter records based on state and district
     let filteredRecords = records;
@@ -194,21 +192,57 @@ export async function GET(request) {
       filteredRecords = filteredRecords.filter(record => record[districtColumn] === district);
     }
     
-    // Extract unique universities from CSV and strip IDs
-    const uniqueUniversities = [...new Set(
-      filteredRecords.map(record => {
-        const name = record[universityColumn];
-        return { name: stripId(name), id: name.match(/\(Id:\s*([^\)]+)\)/)?.[1] || '' };
-      })
-    )].filter(uni => uni.name);
+    // Use a Map to avoid duplicates by keeping track of university IDs
+    const universitiesMap = new Map();
+    
+    // Process filtered records to extract unique universities
+    filteredRecords.forEach(record => {
+      const universityNameWithId = record[universityColumn];
+      // Extract ID and name using regex
+      const idMatch = universityNameWithId.match(/\(Id:\s*([^\)]+)\)/);
+      const id = idMatch ? idMatch[1] : '';
+      const name = stripId(universityNameWithId);
+      
+      // Only add if this ID is not already in the map
+      if (id && !universitiesMap.has(id)) {
+        universitiesMap.set(id, { 
+          name, 
+          id,
+          value: universityNameWithId // Keep the original value for exact matching
+        });
+      } else if (!id && !universitiesMap.has(name)) {
+        // For universities without ID, use name as key
+        universitiesMap.set(name, { 
+          name, 
+          id: '',
+          value: universityNameWithId
+        });
+      }
+    });
+
+    // Convert Map to array
+    let uniqueUniversities = Array.from(universitiesMap.values());
 
     // Add IITs and NITs if no state/district filter is applied
     let allUniversities = [...uniqueUniversities];
     
     if (!state && !district) {
+      // Convert special institutions to the same format
+      const formattedIITs = SPECIAL_INSTITUTIONS.IITs.map(iit => ({
+        name: iit.name,
+        id: iit.id,
+        value: `${iit.name} (Id: ${iit.id})`
+      }));
+      
+      const formattedNITs = SPECIAL_INSTITUTIONS.NITs.map(nit => ({
+        name: nit.name,
+        id: nit.id,
+        value: `${nit.name} (Id: ${nit.id})`
+      }));
+      
       allUniversities = [
-        ...SPECIAL_INSTITUTIONS.IITs,
-        ...SPECIAL_INSTITUTIONS.NITs,
+        ...formattedIITs,
+        ...formattedNITs,
         ...uniqueUniversities
       ];
     }

@@ -35,24 +35,58 @@ export async function GET(request) {
     
     // Determine the column names based on the actual CSV structure
     const stateColumn = Object.keys(firstRecord).find(key => 
-      key.toLowerCase().includes('state') || key === 'State'
-    ) || 'State';
+      key.toLowerCase().includes('state') || key === 'State Name'
+    ) || 'State Name';
     
     const districtColumn = Object.keys(firstRecord).find(key => 
-      key.toLowerCase().includes('district') || key === 'District'
-    ) || 'District';
+      key.toLowerCase().includes('district') || key === 'District Name'
+    ) || 'District Name';
     
     const universityColumn = Object.keys(firstRecord).find(key => 
-      key.toLowerCase().includes('university') || key === 'University'
-    ) || 'University';
+      key.toLowerCase().includes('university') || key === 'University Name'
+    ) || 'University Name';
     
     const collegeColumn = Object.keys(firstRecord).find(key => 
-      key.toLowerCase().includes('college') || key === 'College'
-    ) || 'College';
+      key.toLowerCase().includes('college') || key === 'College Name'
+    ) || 'College Name';
     
-    // Filter records based on university, state and district
+    // Helper function to normalize university name for comparison
+    const normalizeUniversityName = (name) => {
+      // Remove any ID and trim
+      return name.replace(/\s*\(Id:\s*[^\)]+\)\s*$/, '').trim();
+    };
+    
+    // Function to extract university ID for better matching
+    const extractUniversityId = (name) => {
+      const match = name.match(/\(Id:\s*([^\)]+)\)/);
+      return match ? match[1] : null;
+    };
+    
+    // We need more flexible matching to find the university
+    // Try to match by exact string first
     let filteredRecords = records.filter(record => record[universityColumn] === university);
     
+    // If no matches found, try matching by ID if available
+    if (filteredRecords.length === 0) {
+      const universityId = extractUniversityId(university);
+      if (universityId) {
+        filteredRecords = records.filter(record => {
+          const recordId = extractUniversityId(record[universityColumn]);
+          return recordId === universityId;
+        });
+      }
+    }
+    
+    // If still no matches, try matching by normalized name
+    if (filteredRecords.length === 0) {
+      const normalizedUniversity = normalizeUniversityName(university);
+      filteredRecords = records.filter(record => {
+        const normalizedRecord = normalizeUniversityName(record[universityColumn]);
+        return normalizedRecord === normalizedUniversity;
+      });
+    }
+    
+    // Apply additional filters if provided
     if (state) {
       filteredRecords = filteredRecords.filter(record => record[stateColumn] === state);
     }
