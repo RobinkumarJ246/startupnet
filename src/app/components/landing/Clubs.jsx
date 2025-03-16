@@ -1,49 +1,39 @@
 import { useState } from 'react';
-import { Code, Cpu, Bot as RobotIcon, Palette, Brain, Globe, ArrowRight, Users, Calendar, MessageSquare, Info } from 'lucide-react';
+import Image from 'next/image';
+import { Code, Cpu, Bot as RobotIcon, Palette, Brain, Globe, ArrowRight, Users, Calendar, MessageSquare, Info, Lock, LogIn } from 'lucide-react';
 
 const clubs = [
   {
     name: "Coding Club",
     icon: "code",
+    logo: "/images/clubs/coding-club.png",
     description: "Master programming languages, build projects, and participate in hackathons with peers.",
-    color: "from-blue-500 to-indigo-500",
-    bgPattern: "radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 90%)"
+    color: "from-blue-400 to-indigo-600",
+    bgPattern: "radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 90%)",
+    isUniversityAffiliated: false
   },
   {
-    name: "AI/ML Club",
+    name: "Coders' Forum",
     icon: "brain",
-    description: "Explore artificial intelligence, machine learning, and collaborate on data science projects.",
-    color: "from-purple-500 to-pink-500",
-    bgPattern: "radial-gradient(circle at 90% 10%, rgba(168, 85, 247, 0.1) 0%, rgba(236, 72, 153, 0.05) 90%)"
+    logo: "/images/clubs/coders_forum.png",
+    description: "Peer mentoring and collaborative coding club organized by Sri Venkateswara College of Engineering",
+    color: "from-red-200 via-cyan-600 to-blue-800",
+    bgPattern: "radial-gradient(circle at 90% 10%, rgba(28, 195, 227, 0.1) 0%, rgba(236, 72, 153, 0.05) 90%)",
+    isUniversityAffiliated: true,
+    affiliatedTo: "SVCE",
+    universityLogo: "/images/universities/svce.png"
   },
   {
-    name: "Robotics Club",
-    icon: "bot",
-    description: "Build robots, drones, and automated systems with industry mentors and fellow enthusiasts.",
-    color: "from-orange-500 to-red-500",
-    bgPattern: "radial-gradient(circle at 20% 80%, rgba(249, 115, 22, 0.1) 0%, rgba(239, 68, 68, 0.05) 90%)"
-  },
-  {
-    name: "Design Club",
-    icon: "palette",
-    description: "Create stunning UI/UX designs and develop your creative skills through collaborative projects.",
-    color: "from-green-500 to-teal-500",
-    bgPattern: "radial-gradient(circle at 80% 30%, rgba(34, 197, 94, 0.1) 0%, rgba(20, 184, 166, 0.05) 90%)"
-  },
-  {
-    name: "IoT Club",
+    name: "GDSC SVCE",
     icon: "cpu",
-    description: "Work on Internet of Things projects and smart device development with startup partnerships.",
-    color: "from-cyan-500 to-blue-500",
-    bgPattern: "radial-gradient(circle at 40% 60%, rgba(6, 182, 212, 0.1) 0%, rgba(59, 130, 246, 0.05) 90%)"
+    logo: "/images/clubs/gdsc.png",
+    description: "Google Developer Students Club of Sri Venkateswara College of Engineering",
+    color: "from-blue-500 via-yellow-500 to-green-500",
+    bgPattern: "radial-gradient(circle at 40% 60%, rgba(6, 182, 212, 0.1) 0%, rgba(59, 130, 246, 0.05) 90%)",
+    isUniversityAffiliated: true,
+    affiliatedTo: "SVCE",
+    universityLogo: "/images/universities/svce.png"
   },
-  {
-    name: "Web3 Club",
-    icon: "globe",
-    description: "Explore blockchain, cryptocurrencies, and build decentralized applications with industry experts.",
-    color: "from-yellow-500 to-orange-500",
-    bgPattern: "radial-gradient(circle at 70% 50%, rgba(234, 179, 8, 0.1) 0%, rgba(249, 115, 22, 0.05) 90%)"
-  }
 ];
 
 const IconComponent = ({ type }) => {
@@ -67,6 +57,15 @@ const IconComponent = ({ type }) => {
 
 export default function Clubs() {
   const [activeClub, setActiveClub] = useState(null);
+  const [showLoginHint, setShowLoginHint] = useState(false);
+  const [logoError, setLogoError] = useState({});
+
+  const handleLogoError = (index) => {
+    setLogoError(prev => ({
+      ...prev,
+      [index]: true
+    }));
+  };
 
   return (
     <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
@@ -91,10 +90,10 @@ export default function Clubs() {
               <h3 className="text-lg font-semibold text-indigo-800 mb-2">University-Affiliated Clubs</h3>
               <p className="text-indigo-700">
                 Students can join university-affiliated clubs after verifying their educational credentials from the respective institution. 
-                This verification process ensures a trusted community environment.
+                This verification process ensures a trusted community environment ensuring our security, trust and verification.
               </p>
               <p className="text-indigo-500 mt-2">
-                * The displayed clubs are open-to-join clubs.
+                * Open clubs can be joined by anyone, while university-affiliated clubs require verification.
               </p>
             </div>
           </div>
@@ -111,20 +110,79 @@ export default function Clubs() {
             >
               <div className={`absolute inset-0 bg-gradient-to-r ${club.color} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-xl`} />
               <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col border border-gray-100">
+                {/* Club Type Badge */}
+                <div className={`absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-medium ${club.isUniversityAffiliated ? 'bg-indigo-100 text-indigo-700' : 'bg-green-100 text-green-700'}`}>
+                  {club.isUniversityAffiliated ? 'University Affiliated' : 'Open to Join'}
+                </div>
+                
                 <div className="flex items-center mb-4">
-                  <div className={`w-12 h-12 rounded-lg bg-gradient-to-r ${club.color} flex items-center justify-center mr-4`}>
-                    <IconComponent type={club.icon} className="h-6 w-6 text-white" />
+                  <div className={`w-12 h-12 rounded-lg ${logoError[index] ? `bg-gradient-to-r ${club.color} flex items-center justify-center` : 'relative overflow-hidden'} mr-4`}>
+                    {logoError[index] ? (
+                      <IconComponent type={club.icon} className="h-6 w-6 text-white" />
+                    ) : (
+                      <Image 
+                        src={club.logo} 
+                        alt={`${club.name} logo`}
+                        width={48}
+                        height={48}
+                        className="object-contain"
+                        onError={() => handleLogoError(index)}
+                      />
+                    )}
                   </div>
-                  <h3 className="text-xl font-semibold">{club.name}</h3>
+                  <div>
+                    <h3 className="text-xl font-semibold">{club.name}</h3>
+                    {club.isUniversityAffiliated && (
+                      <div className="flex items-center mt-1 text-xs text-gray-500">
+                        <span>Affiliated to:</span>
+                        <div className="flex items-center ml-1">
+                          <div className="w-4 h-4 relative mr-1">
+                            <Image 
+                              src={club.universityLogo} 
+                              alt={club.affiliatedTo}
+                              width={16}
+                              height={16}
+                              className="object-contain"
+                              onError={(e) => {e.target.style.display = 'none'}}
+                            />
+                          </div>
+                          <span className="font-medium text-indigo-600">{club.affiliatedTo}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <p className="text-gray-600 mb-6 flex-grow">{club.description}</p>
                 
                 <div className="flex items-center justify-between mt-auto">
-                  <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg text-indigo-600 hover:text-indigo-700 font-medium group/btn transition-all duration-300 hover:shadow-sm">
-                    Join Club
-                    <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform duration-300" />
-                  </button>
+                  {club.isUniversityAffiliated ? (
+                    <div className="relative">
+                      <button 
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 border border-gray-300 rounded-lg text-gray-500 font-medium cursor-not-allowed"
+                        onMouseEnter={() => setShowLoginHint(index)}
+                        onMouseLeave={() => setShowLoginHint(null)}
+                      >
+                        <Lock className="mr-2 h-4 w-4" />
+                        Requires Verification
+                      </button>
+                      {showLoginHint === index && (
+                        <div className="absolute bottom-full left-0 mb-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg shadow-lg z-10">
+                          <div className="flex items-start">
+                            <LogIn className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+                            <p>Login required. Students must verify their educational credentials to join university-affiliated clubs.</p>
+                          </div>
+                          <div className="absolute bottom-0 left-6 transform translate-y-1/2 rotate-45 w-2 h-2 bg-gray-800"></div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg text-indigo-600 hover:text-indigo-700 font-medium group/btn transition-all duration-300 hover:shadow-sm">
+                      Join Club
+                      <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform duration-300" />
+                    </button>
+                  )}
+                  {/*}
                   <div className="flex -space-x-2">
                     {[...Array(4)].map((_, i) => (
                       <div key={i} className="w-8 h-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs font-medium text-gray-600">
@@ -132,7 +190,7 @@ export default function Clubs() {
                       </div>
                     ))}
                     <div className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-xs font-medium text-indigo-600">+</div>
-                  </div>
+                  </div> {*/}
                 </div>
               </div>
             </div>
