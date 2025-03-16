@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Rocket, Users, Briefcase, Award, Zap, Globe, Star, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
+import { ArrowRight, Rocket, Users, Briefcase, Award, Zap, Globe, Star, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, Sparkles, PlusCircle } from 'lucide-react';
 
 // Startup showcase data
 const featuredStartups = [
@@ -10,12 +10,16 @@ const featuredStartups = [
     logo: "/images/upcheck_logo.ico",
     description: "Smart aquaculture management platform to optimize shrimp farming",
     category: "Aquaculture tech",
-    openRoles: 3,
+    openRoles: 2,
     color: "from-blue-700 to-teal-600",
     highlight: "Spotlight",
-    fallbackIcon: Rocket
+    fallbackIcon: Rocket,
+    isSpotlight: false,
+    founderYear: 2025,
+    members: 10,
   },
-  {
+  /*
+    {
     name: "CloudScale",
     logo: "/images/startup2.png",
     description: "Revolutionary cloud infrastructure solutions that scale with your business needs and optimize costs.",
@@ -24,17 +28,8 @@ const featuredStartups = [
     color: "from-blue-700 to-orange-600",
     highlight: "Series A Funded",
     fallbackIcon: Globe
-  },
-  {
-    name: "EcoTech",
-    logo: "/images/startup3.png",
-    description: "Sustainable technology for a better future, focusing on renewable energy and carbon footprint reduction.",
-    category: "GreenTech",
-    openRoles: 2,
-    color: "from-green-600 to-teal-600",
-    highlight: "Award Winning",
-    fallbackIcon: Zap
   }
+    */
 ];
 
 export default function FeaturedStartups() {
@@ -67,10 +62,21 @@ export default function FeaturedStartups() {
             return (
               <div 
                 key={index} 
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative"
+                className={`bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative ${startup.isSpotlight ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
                 onMouseEnter={() => setActiveStartup(index)}
                 onMouseLeave={() => setActiveStartup(null)}
               >
+                {startup.isSpotlight && (
+                  <div className="absolute -top-4 -right-4 z-10">
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-full bg-indigo-500 blur-md opacity-70 animate-pulse"></div>
+                      <div className="relative bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        SPOTLIGHT
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className={`h-2 bg-gradient-to-r ${startup.color}`}></div>
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
@@ -128,12 +134,12 @@ export default function FeaturedStartups() {
                       <div className="text-sm font-medium">Team Size</div>
                       <div className="flex items-center">
                         <Users className="h-4 w-4 mr-1" />
-                        <span>{10 + index * 5}+ members</span>
+                        <span>{startup.members}+ members</span>
                       </div>
                     </div>
                     <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3">
                       <div className="text-sm font-medium">Founded</div>
-                      <div>202{index + 1}</div>
+                      <div>{startup.founderYear}</div>
                     </div>
                   </div>
                   
@@ -147,6 +153,28 @@ export default function FeaturedStartups() {
               </div>
             );
           })}
+
+          {/* "More Startups Coming Soon" Card */}
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl shadow-lg overflow-hidden border border-dashed border-gray-300 flex flex-col items-center justify-center p-8 text-center h-full">
+            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+              <PlusCircle className="h-8 w-8 text-indigo-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">More Startups Coming Soon</h3>
+            <p className="text-gray-600 mb-6">
+              We're constantly adding innovative startups to our featured section. Check back soon!
+            </p>
+            <div className="mt-4 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg inline-flex items-center">
+              <Sparkles className="h-4 w-4 mr-2" />
+              <span className="font-medium">Your startup could be here!</span>
+            </div>
+            <Link
+              href="/register/startup"
+              className="mt-6 inline-flex items-center px-4 py-2 bg-white border border-indigo-300 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-300 shadow-sm"
+            >
+              Register as Startup
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </div>
         </div>
         
         <div className="mt-12 text-center">
@@ -171,6 +199,18 @@ export default function FeaturedStartups() {
           </div>
         </div>
       </div>
+
+      {/* Add spotlight animation styles */}
+      <style jsx global>{`
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 15px 5px rgba(79, 70, 229, 0.4); }
+          50% { box-shadow: 0 0 25px 10px rgba(79, 70, 229, 0.6); }
+        }
+        
+        .spotlight-glow {
+          animation: pulse-glow 2s infinite;
+        }
+      `}</style>
     </section>
   );
 } 
