@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Mailbox, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 import Navbar from './components/landing/Navbar';
 import Clubs from './components/landing/Clubs';
 import ProjectsSection from './components/landing/ProjectsSection';
@@ -153,6 +153,92 @@ export default function Home() {
           </div>
         </div>
       </section>
+      
+      {/* Footer Section */}
+      <footer className="bg-gray-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold">StartupsNet</h3>
+              <p className="text-gray-400 text-sm">
+                Connecting students, startups, and clubs to foster innovation and collaboration.
+              </p>
+              <div className="flex space-x-4 pt-2">
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <Facebook size={20} />
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <Twitter size={20} />
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <Instagram size={20} />
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white transition-colors">
+                  <Linkedin size={20} />
+                </a>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h4 className="text-lg font-medium">Quick Links</h4>
+              <ul className="space-y-2">
+                <li><Link href="/about" className="text-gray-400 hover:text-white transition-colors">About Us</Link></li>
+                <li><Link href="/startups" className="text-gray-400 hover:text-white transition-colors">Startups</Link></li>
+                <li><Link href="/clubs" className="text-gray-400 hover:text-white transition-colors">Clubs</Link></li>
+                <li><Link href="/projects" className="text-gray-400 hover:text-white transition-colors">Projects</Link></li>
+                <li><Link href="/events" className="text-gray-400 hover:text-white transition-colors">Events</Link></li>
+              </ul>
+            </div>
+            
+            <div className="space-y-4">
+              <h4 className="text-lg font-medium">Resources</h4>
+              <ul className="space-y-2">
+                <li><Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link></li>
+                <li><Link href="/faq" className="text-gray-400 hover:text-white transition-colors">FAQ</Link></li>
+                <li><Link href="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="text-gray-400 hover:text-white transition-colors">Terms of Service</Link></li>
+              </ul>
+            </div>
+            
+            <div className="space-y-4">
+              <h4 className="text-lg font-medium">Contact Us</h4>
+              <ul className="space-y-3">
+                <li className="flex items-start">
+                  <Mail className="h-5 w-5 text-indigo-400 mr-2 mt-0.5" />
+                  <span className="text-gray-400">contact@startupsnet.com</span>
+                </li>
+                <li className="flex items-start">
+  <Mailbox className="h-5 w-5 text-indigo-400 mr-2 mt-0.5" />
+  <Link href="/stay_tuned" className="text-gray-400 hover:text-white transition-colors">
+    Subscribe to our newsletter
+  </Link>
+</li>
+                <li className="flex items-start">
+                  <Phone className="h-5 w-5 text-indigo-400 mr-2 mt-0.5" />
+                  <span className="text-gray-400">+1 (555) 123-4567</span>
+                </li>
+                <li className="flex items-start">
+                  <MapPin className="h-5 w-5 text-indigo-400 mr-2 mt-0.5" />
+                  <span className="text-gray-400">123 Innovation Street, Tech Hub, CA 94103</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
+            <p className="text-gray-400 text-sm">
+              &copy; {new Date().getFullYear()} StartupsNet. All rights reserved.
+            </p>
+            <div className="mt-4 md:mt-0">
+              <ul className="flex space-x-6 text-sm text-gray-400">
+                <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-white transition-colors">Terms</Link></li>
+                <li><Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
