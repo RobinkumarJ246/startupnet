@@ -61,10 +61,10 @@ export default function UniversitySelector({
         
         if (response.ok) {
           if (formData.country === 'India') {
-            // Format for Indian universities with IDs
+            // Process the new university data format
             setUniversities(data.universities.map(uni => ({
               label: uni.id ? `${uni.name} (Id: ${uni.id})` : uni.name,
-              value: uni.name
+              value: uni.value || (uni.id ? `${uni.name} (Id: ${uni.id})` : uni.name)
             })));
           } else {
             // Format for international universities
