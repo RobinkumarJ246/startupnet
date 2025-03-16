@@ -3,6 +3,69 @@ import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
 
+// List of IITs and NITs with their IDs
+const SPECIAL_INSTITUTIONS = {
+  IITs: [
+    { name: 'Indian Institute of Technology, Delhi', id: 'U-IIT01' },
+    { name: 'Indian Institute of Technology, Bombay', id: 'U-IIT02' },
+    { name: 'Indian Institute of Technology, Madras', id: 'U-IIT03' },
+    { name: 'Indian Institute of Technology, Kanpur', id: 'U-IIT04' },
+    { name: 'Indian Institute of Technology, Kharagpur', id: 'U-IIT05' },
+    { name: 'Indian Institute of Technology, Guwahati', id: 'U-IIT06' },
+    { name: 'Indian Institute of Technology, Hyderabad', id: 'U-IIT07' },
+    { name: 'Indian Institute of Technology, Gandhinagar', id: 'U-IIT08' },
+    { name: 'Indian Institute of Technology, Ropar', id: 'U-IIT09' },
+    { name: 'Indian Institute of Technology, Bhubaneswar', id: 'U-IIT10' },
+    { name: 'Indian Institute of Technology, Jodhpur', id: 'U-IIT11' },
+    { name: 'Indian Institute of Technology, Patna', id: 'U-IIT12' },
+    { name: 'Indian Institute of Technology, Indore', id: 'U-IIT13' },
+    { name: 'Indian Institute of Technology, Mandi', id: 'U-IIT14' },
+    { name: 'Indian Institute of Technology, Varanasi (BHU)', id: 'U-IIT15' },
+    { name: 'Indian Institute of Technology, Palakkad', id: 'U-IIT16' },
+    { name: 'Indian Institute of Technology, Tirupati', id: 'U-IIT17' },
+    { name: 'Indian Institute of Technology, Dhanbad (ISM)', id: 'U-IIT18' },
+    { name: 'Indian Institute of Technology, Bhilai', id: 'U-IIT19' },
+    { name: 'Indian Institute of Technology, Dharwad', id: 'U-IIT20' },
+    { name: 'Indian Institute of Technology, Jammu', id: 'U-IIT21' },
+    { name: 'Indian Institute of Technology, Goa', id: 'U-IIT22' },
+    { name: 'Indian Institute of Technology (ISM), Dhanbad', id: 'U-IIT23' }
+  ],
+  NITs: [
+    { name: 'National Institute of Technology, Tiruchirappalli', id: 'U-NIT01' },
+    { name: 'National Institute of Technology, Surathkal', id: 'U-NIT02' },
+    { name: 'National Institute of Technology, Warangal', id: 'U-NIT03' },
+    { name: 'National Institute of Technology, Calicut', id: 'U-NIT04' },
+    { name: 'National Institute of Technology, Rourkela', id: 'U-NIT05' },
+    { name: 'National Institute of Technology, Kurukshetra', id: 'U-NIT06' },
+    { name: 'National Institute of Technology, Durgapur', id: 'U-NIT07' },
+    { name: 'National Institute of Technology, Silchar', id: 'U-NIT08' },
+    { name: 'National Institute of Technology, Hamirpur', id: 'U-NIT09' },
+    { name: 'National Institute of Technology, Jaipur', id: 'U-NIT10' },
+    { name: 'National Institute of Technology, Jalandhar', id: 'U-NIT11' },
+    { name: 'National Institute of Technology, Jamshedpur', id: 'U-NIT12' },
+    { name: 'National Institute of Technology, Patna', id: 'U-NIT13' },
+    { name: 'National Institute of Technology, Raipur', id: 'U-NIT14' },
+    { name: 'National Institute of Technology, Srinagar', id: 'U-NIT15' },
+    { name: 'National Institute of Technology, Agartala', id: 'U-NIT16' },
+    { name: 'National Institute of Technology, Nagaland', id: 'U-NIT17' },
+    { name: 'National Institute of Technology, Manipur', id: 'U-NIT18' },
+    { name: 'National Institute of Technology, Meghalaya', id: 'U-NIT19' },
+    { name: 'National Institute of Technology, Mizoram', id: 'U-NIT20' },
+    { name: 'National Institute of Technology, Arunachal Pradesh', id: 'U-NIT21' },
+    { name: 'National Institute of Technology, Sikkim', id: 'U-NIT22' },
+    { name: 'National Institute of Technology, Uttarakhand', id: 'U-NIT23' },
+    { name: 'National Institute of Technology, Andhra Pradesh', id: 'U-NIT24' },
+    { name: 'National Institute of Technology, Delhi', id: 'U-NIT25' },
+    { name: 'National Institute of Technology, Goa', id: 'U-NIT26' },
+    { name: 'National Institute of Technology, Puducherry', id: 'U-NIT27' }
+  ]
+};
+
+// Helper function to strip ID from university name
+const stripId = (name) => {
+  return name.replace(/\s*\(Id:\s*[^\)]+\)\s*$/, '').trim();
+};
+
 // Cache the parsed data to avoid reading the file on every request
 let cachedData = null;
 
@@ -131,13 +194,30 @@ export async function GET(request) {
       filteredRecords = filteredRecords.filter(record => record[districtColumn] === district);
     }
     
-    // Extract unique universities
+    // Extract unique universities from CSV and strip IDs
     const uniqueUniversities = [...new Set(
-      filteredRecords.map(record => record[universityColumn])
-    )].filter(Boolean).sort();
+      filteredRecords.map(record => {
+        const name = record[universityColumn];
+        return { name: stripId(name), id: name.match(/\(Id:\s*([^\)]+)\)/)?.[1] || '' };
+      })
+    )].filter(uni => uni.name);
+
+    // Add IITs and NITs if no state/district filter is applied
+    let allUniversities = [...uniqueUniversities];
+    
+    if (!state && !district) {
+      allUniversities = [
+        ...SPECIAL_INSTITUTIONS.IITs,
+        ...SPECIAL_INSTITUTIONS.NITs,
+        ...uniqueUniversities
+      ];
+    }
+    
+    // Sort universities by name
+    allUniversities.sort((a, b) => a.name.localeCompare(b.name));
     
     // Return the list of universities
-    return NextResponse.json({ universities: uniqueUniversities });
+    return NextResponse.json({ universities: allUniversities });
   } catch (error) {
     console.error('Error fetching universities:', error);
     return NextResponse.json(

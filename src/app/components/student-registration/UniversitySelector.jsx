@@ -57,26 +57,25 @@ export default function UniversitySelector({
         }
         
         const response = await fetch(endpoint, requestOptions);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch universities: ${response.statusText}`);
-        }
-        
         const data = await response.json();
         
-        // Process universities based on source
-        if (formData.country === 'India') {
-          setUniversities(data.universities || []);
+        if (response.ok) {
+          if (formData.country === 'India') {
+            // Format for Indian universities with IDs
+            setUniversities(data.universities.map(uni => ({
+              label: uni.id ? `${uni.name} (Id: ${uni.id})` : uni.name,
+              value: uni.name
+            })));
+          } else {
+            // Format for international universities
+            setUniversities(data.universities.map(uni => uni.name));
+          }
         } else {
-          // Map the format from HipoLabs API
-          const mappedUniversities = data.universities.map(uni => uni.name);
-          setUniversities(mappedUniversities);
+          console.error('Failed to fetch universities:', data.error);
+          setUniversities([]);
         }
-        
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching universities:', err);
-        setError('Failed to load universities. Please try again later.');
+      } catch (error) {
+        console.error('Error fetching universities:', error);
         setUniversities([]);
       } finally {
         setIsLoadingUniversities(false);
@@ -93,7 +92,9 @@ export default function UniversitySelector({
     } else {
       const term = searchTerm.toLowerCase().trim();
       const filtered = universities.filter(university => 
-        university.toLowerCase().includes(term)
+        (typeof university === 'string' ? 
+          university.toLowerCase().includes(term) : 
+          university.label.toLowerCase().includes(term))
       );
       setFilteredUniversities(filtered);
     }
@@ -130,17 +131,18 @@ export default function UniversitySelector({
   };
 
   const selectUniversity = (university) => {
+    const value = typeof university === 'string' ? university : university.value;
     // Create a modified event to send to the parent component
     const event = {
       target: {
         name: 'university',
-        value: university,
+        value: value,
         type: 'text'
       }
     };
     onChange(event);
     
-    setSearchTerm(university);
+    setSearchTerm(typeof university === 'string' ? university : university.label);
     setShowDropdown(false);
     
     // Clear any errors
@@ -291,7 +293,7 @@ export default function UniversitySelector({
                         className="px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer"
                         onClick={() => selectUniversity(university)}
                       >
-                        {university}
+                        {typeof university === 'string' ? university : university.label}
                       </li>
                     ))}
                   </ul>
