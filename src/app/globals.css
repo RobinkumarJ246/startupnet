@@ -19,3 +19,98 @@ body {
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Add these animations to your existing globals.css */
+@keyframes fall {
+  0% {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fall {
+  animation: fall 3s linear infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+/* Add these animations for the robot assistant */
+@keyframes slideIn {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.slide-out {
+  animation: slideOut 0.3s ease-in forwards;
+}
+
+.bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+/* Speech bubble triangle */
+.speech-bubble {
+  position: relative;
+}
+
+.speech-bubble:after {
+  content: '';
+  position: absolute;
+  bottom: -12px;
+  right: 20px;
+  border-width: 12px 12px 0;
+  border-style: solid;
+  border-color: white transparent;
+  display: block;
+  width: 0;
+}
