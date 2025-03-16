@@ -1,7 +1,7 @@
 // pages/register.js
 'use client'
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   User, 
@@ -18,7 +18,9 @@ import {
   Users, 
   ChevronDown,
   ChevronRight,
-  Check
+  Check,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 
 function Registerform() {
@@ -770,13 +772,121 @@ const type = searchParams.get('type');
   );
 }
 
-export default function Register() {
+export default function RegisterLanding() {
+  const router = useRouter();
+  const [selectedType, setSelectedType] = useState(null);
+
+  const handleTypeSelect = (type) => {
+    setSelectedType(type);
+  };
+
+  const handleContinue = () => {
+    if (selectedType) {
+      router.push(`/register/${selectedType}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-        <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
-          <Registerform />
-        </Suspense>
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl">
+            Join <span className="text-blue-600">StartupsNet</span>
+          </h1>
+          <p className="mt-4 text-xl text-gray-500">
+            Select your account type to get started
+          </p>
+        </div>
+        
+        {/* Account Type Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div 
+            onClick={() => handleTypeSelect('student')}
+            className={`relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:shadow-xl
+              ${selectedType === 'student' ? 'ring-4 ring-blue-500 scale-105' : 'bg-white'}`}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-600 opacity-75"></div>
+            <div className="relative p-8">
+              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-6">
+                <User size={32} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Student</h3>
+              <p className="text-white text-opacity-90 mb-6">
+                For college and university students looking to connect with startups and build their network.
+              </p>
+              <div className="flex items-center text-white">
+                <span>Perfect for internships</span>
+                <Sparkles className="ml-2" size={16} />
+              </div>
+            </div>
+          </div>
+          
+          <div 
+            onClick={() => handleTypeSelect('startup')}
+            className={`relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:shadow-xl
+              ${selectedType === 'startup' ? 'ring-4 ring-blue-500 scale-105' : 'bg-white'}`}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-teal-600 opacity-75"></div>
+            <div className="relative p-8">
+              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-6">
+                <Briefcase size={32} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Startup</h3>
+              <p className="text-white text-opacity-90 mb-6">
+                For emerging companies looking to recruit talent, find resources and scale their business.
+              </p>
+              <div className="flex items-center text-white">
+                <span>Find top talent</span>
+                <Sparkles className="ml-2" size={16} />
+              </div>
+            </div>
+          </div>
+          
+          <div 
+            onClick={() => handleTypeSelect('club')}
+            className={`relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:shadow-xl
+              ${selectedType === 'club' ? 'ring-4 ring-blue-500 scale-105' : 'bg-white'}`}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-600 opacity-75"></div>
+            <div className="relative p-8">
+              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-6">
+                <Users size={32} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Club</h3>
+              <p className="text-white text-opacity-90 mb-6">
+                For university or independent clubs focused on entrepreneurship, technology or innovation.
+              </p>
+              <div className="flex items-center text-white">
+                <span>Grow your community</span>
+                <Sparkles className="ml-2" size={16} />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Continue Button */}
+        <div className="flex justify-center">
+          <button
+            onClick={handleContinue}
+            disabled={!selectedType}
+            className={`flex items-center px-8 py-3 text-lg font-medium rounded-full shadow-lg transition-all duration-300
+              ${selectedType 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+          >
+            Continue to Registration
+            <ArrowRight size={20} className="ml-2" />
+          </button>
+        </div>
+        
+        {/* Sign In Link */}
+        <p className="mt-8 text-center text-gray-500">
+          Already have an account?{' '}
+          <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   );
