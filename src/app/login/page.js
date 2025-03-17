@@ -69,6 +69,19 @@ export default function LoginPage() {
     setAnimationSpeed
   } = useAssistant();
   
+  // Define handleInput outside useEffect so it's available to JSX
+  const handleInput = (e) => {
+    // Make this less intrusive - only show assistant for longer emails 
+    // and not on every keystroke
+    if (e.target.value && e.target.value.length > 8 && e.target.value.includes('@')) {
+      const username = e.target.value.split('@')[0];
+      if (username) {
+        // Use a longer delay to prevent interference with typing
+        showAssistant(`Hello ${username}! Please enter your password too.`, 5000);
+      }
+    }
+  };
+  
   // Memoize the setup function to avoid recreation on every render
   const setupAssistant = useCallback(() => {
     // Set custom assistant properties for login page
@@ -155,7 +168,7 @@ export default function LoginPage() {
     };
   }, [showAssistant]);
   
-  // Input trigger for email with dynamic content
+  // Now in the email input focus effect, don't redefine handleInput
   useEffect(() => {
     if (!emailRef.current) return;
     
@@ -163,21 +176,11 @@ export default function LoginPage() {
       showAssistant("Enter your email address here");
     };
     
-    const handleInput = (e) => {
-      // Only update while typing if we have some content
-      if (e.target.value && e.target.value.includes('@')) {
-        const username = e.target.value.split('@')[0];
-        showAssistant(`Hello ${username}! Please enter your password too.`, 3000);
-      }
-    };
-    
     emailRef.current.addEventListener('focus', handleFocus);
-    emailRef.current.addEventListener('input', handleInput);
     
     return () => {
       if (emailRef.current) {
         emailRef.current.removeEventListener('focus', handleFocus);
-        emailRef.current.removeEventListener('input', handleInput);
       }
     };
   }, [showAssistant]);
@@ -186,7 +189,7 @@ export default function LoginPage() {
   const handleRememberMeChange = (e) => {
     setRememberMe(e.target.checked);
     
-    // Get username from email if available
+    // Get username from email if available, without requiring @ symbol
     const username = emailValue ? emailValue.split('@')[0] : null;
     
     if (e.target.checked) {
@@ -210,7 +213,7 @@ export default function LoginPage() {
     }
   };
   
-  // Track email changes to extract username
+  // Add a proper handler for email value changes
   const handleEmailChange = (e) => {
     setEmailValue(e.target.value);
   };
@@ -270,16 +273,17 @@ export default function LoginPage() {
                   <User size={18} className="text-gray-400" />
                 </div>
                 <input
-                  ref={emailRef}
+                  type="email"
                   id="email"
                   name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all duration-200"
+                  className="py-3 px-4 pl-10 block w-full border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="your.email@example.com"
+                  required
                   value={emailValue}
                   onChange={handleEmailChange}
+                  onBlur={handleInput}
+                  inputMode="email"
+                  ref={emailRef}
                 />
               </div>
               {state?.errors?.email && (
@@ -291,9 +295,9 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-              <div className="mt-1 relative rounded-md shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock size={18} className="text-gray-400" />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Lock size={18} className="text-gray-500" />
                 </div>
                 <input
                   ref={passwordRef}
@@ -302,13 +306,14 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  className="appearance-none block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm transition-all duration-200"
+                  className="py-3 px-4 pl-10 pr-10 block w-full border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="••••••••"
                 />
-                <button 
-                  type="button" 
-                  onClick={() => setShowPassword(!showPassword)} 
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex="-1"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

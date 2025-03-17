@@ -130,9 +130,9 @@ export default function StayTuned() {
                   <ul className="space-y-3">
                     {[
                       'Be the first to access this new feature',
-                      'Receive exclusive onboarding guidance',
+                      'Receive special badges for providing feedback',
                       'Get special early adopter benefits',
-                      'Provide feedback that shapes the feature'
+                      'Shape the upcoming features and help us improve them'
                     ].map((item, i) => (
                       <li key={i} className="flex items-start">
                         <Star className="h-5 w-5 text-blue-400 mr-3 flex-shrink-0" />
@@ -152,35 +152,36 @@ export default function StayTuned() {
                 </div>
                 
                 <div className="relative h-full flex flex-col justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold mb-6">What to expect</h2>
-                    <p className="text-blue-100 mb-8">
-                      This upcoming feature will enhance your StartupsNet experience with powerful new capabilities designed to help you collaborate more effectively.
-                    </p>
-                    
-                    <div className="space-y-6">
-                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5">
-                        <h3 className="font-medium mb-2">Streamlined Workflow</h3>
-                        <p className="text-sm text-blue-100">
-                          Intuitive tools that make project management and collaboration effortless.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5">
-                        <h3 className="font-medium mb-2">Advanced Integration</h3>
-                        <p className="text-sm text-blue-100">
-                          Connect with your favorite tools and services for a seamless experience.
-                        </p>
-                      </div>
-                      
-                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5">
-                        <h3 className="font-medium mb-2">Enhanced Analytics</h3>
-                        <p className="text-sm text-blue-100">
-                          Gain valuable insights into your projects and team performance.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                <div>
+  <h2 className="text-2xl font-bold mb-6">What to Expect</h2>
+  <p className="text-blue-100 mb-8">
+    Exciting updates are on the way to enhance your StartupsNet experience, making it more engaging, efficient, and impactful.
+  </p>
+  
+  <div className="space-y-6">
+    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5">
+      <h3 className="font-medium mb-2">Seamless Experience</h3>
+      <p className="text-sm text-blue-100">
+        Enjoy a smoother and more intuitive interface designed for effortless navigation and interaction.
+      </p>
+    </div>
+    
+    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5">
+      <h3 className="font-medium mb-2">Expanded Connectivity</h3>
+      <p className="text-sm text-blue-100">
+        Stay connected with relevant updates, opportunities, and communities that match your interests.
+      </p>
+    </div>
+    
+    <div className="bg-white/10 backdrop-blur-sm rounded-lg p-5">
+      <h3 className="font-medium mb-2">Smarter Insights</h3>
+      <p className="text-sm text-blue-100">
+        Gain valuable data and insights to help you stay informed, grow, and make better decisions.
+      </p>
+    </div>
+  </div>
+</div>
+
                   
                   <div className="mt-12 pt-6 border-t border-white/20">
   <div className="flex items-center">

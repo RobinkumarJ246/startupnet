@@ -19,7 +19,7 @@ import {
 export default function RegistrationSuccessContent() {
   const searchParams = useSearchParams();
   const [accountType, setAccountType] = useState('');
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(15);
   
   useEffect(() => {
     const type = searchParams.get('type');
@@ -51,7 +51,7 @@ export default function RegistrationSuccessContent() {
     switch(accountType) {
       case 'student':
         return {
-          title: "Welcome to StartupsNet, Student!",
+          title: "Welcome to StartupsNet",
           description: "Your student account has been created successfully. You're now part of our community of aspiring entrepreneurs and innovators.",
           iconBg: "bg-blue-100",
           iconColor: "text-blue-600",
@@ -63,8 +63,8 @@ export default function RegistrationSuccessContent() {
           confettiColor: "text-blue-500",
           nextSteps: [
             "Complete your profile with your skills and interests",
+            "Join clubs and organizations",
             "Explore startup opportunities and internships",
-            "Connect with other students and startup founders",
             "Join events and hackathons in your area"
           ],
           benefits: [
@@ -77,7 +77,7 @@ export default function RegistrationSuccessContent() {
         
       case 'startup':
         return {
-          title: "Welcome to StartupsNet, Startup!",
+          title: "Welcome to StartupsNet",
           description: "Your startup account has been created successfully. You now have access to our network of talent, resources, and potential partners.",
           iconBg: "bg-emerald-100",
           iconColor: "text-emerald-600",
@@ -96,14 +96,15 @@ export default function RegistrationSuccessContent() {
           benefits: [
             "Access to top student talent",
             "Connect with investors and mentors",
-            "Free promotion on our platform"
+            "Dedicated workspace for your startup",
+            "Access to exclusive resources for startup growth"
           ],
           ctaText: "Start Building Your Team"
         };
         
       case 'club':
         return {
-          title: "Welcome to StartupsNet, Club!",
+          title: "Welcome to StartupsNet",
           description: "Your club account has been created successfully. You're now part of our network of entrepreneurial and tech communities.",
           iconBg: "bg-purple-100",
           iconColor: "text-purple-600",
@@ -114,14 +115,15 @@ export default function RegistrationSuccessContent() {
           icon: <Users size={32} />,
           confettiColor: "text-purple-500",
           nextSteps: [
-            "Complete your club profile with activities and events",
-            "Connect with startups and other clubs in your area",
-            "Promote your upcoming events to a wider audience",
+            "Complete your club profile with your motto and goals",
+            "Add people to your club",
+            "Set up your club's official page",
             "Access resources for club management and growth"
           ],
           benefits: [
             "Free event promotion to relevant audiences",
             "Connect with industry sponsors",
+            "Easy ticket distribution and verification with event management tools",
             "Access to exclusive resources for club growth"
           ],
           ctaText: "Grow Your Community"

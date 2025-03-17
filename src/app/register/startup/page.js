@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -17,7 +17,12 @@ import {
   Calendar,
   ChevronLeft,
   Check,
-  AlertCircle
+  AlertCircle,
+  Home,
+  Eye,
+  EyeOff,
+  Navigation,
+  Phone
 } from 'lucide-react';
 
 export default function StartupRegistration() {
@@ -25,6 +30,9 @@ export default function StartupRegistration() {
   const [step, setStep] = useState(1);
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showCustomIndustry, setShowCustomIndustry] = useState(false);
   const [formData, setFormData] = useState({
     // Account details
     email: '',
@@ -34,10 +42,21 @@ export default function StartupRegistration() {
     // Company details
     companyName: '',
     industry: '',
+    customIndustry: '',
     foundingYear: '',
     companySize: '',
     website: '',
-    location: '',
+    
+    // Location details
+    location: {
+      street: '',
+      city: '',
+      state: '',
+      country: '',
+      postalCode: '',
+      phone: '',
+      landmark: ''
+    },
     
     // Profile details
     description: '',
@@ -73,7 +92,7 @@ export default function StartupRegistration() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Handle nested objects (social links)
+    // Handle nested objects (social links or location)
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setFormData(prevState => ({
@@ -82,6 +101,12 @@ export default function StartupRegistration() {
           ...prevState[parent],
           [child]: value
         }
+      }));
+    } else if (name === 'industry') {
+      setShowCustomIndustry(value === 'Other');
+      setFormData(prevState => ({
+        ...prevState,
+        [name]: value
       }));
     } else {
       setFormData(prevState => ({
@@ -130,17 +155,8 @@ export default function StartupRegistration() {
     const errors = {};
     
     if (stepNumber === 1) {
-      if (!formData.email) {
-        errors.email = "Email is required";
-      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        errors.email = "Please enter a valid email";
-      } else {
-        // Check if the email is from a personal domain
-        const domain = formData.email.split('@')[1].toLowerCase();
-        if (personalEmailDomains.includes(domain)) {
-          errors.email = "Please use a company email (not personal email like Gmail or Yahoo)";
-        }
-      }
+      if (!formData.email) errors.email = "Email is required";
+      else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = "Please enter a valid email";
       
       if (!formData.password) errors.password = "Password is required";
       else if (formData.password.length < 8) errors.password = "Password must be at least 8 characters";
@@ -151,9 +167,21 @@ export default function StartupRegistration() {
     
     if (stepNumber === 2) {
       if (!formData.companyName) errors.companyName = "Company name is required";
-      if (!formData.industry) errors.industry = "Please select an industry";
+      if (!formData.industry) errors.industry = "Industry is required";
+      
+      if (formData.industry === 'Other' && !formData.customIndustry) {
+        errors.customIndustry = "Please specify your industry";
+      }
+      
       if (!formData.companySize) errors.companySize = "Company size is required";
-      if (!formData.location) errors.location = "Location is required";
+      
+      if (formData.website && !/^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/.test(formData.website)) {
+        errors.website = "Please enter a valid website URL";
+      }
+      
+      if (!formData.location.city || !formData.location.country) {
+        errors.location = "City and country are required";
+      }
     }
     
     setFormErrors(errors);
@@ -238,13 +266,13 @@ export default function StartupRegistration() {
 
   const renderAccountDetailsStep = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Create your startup account</h2>
-      <p className="text-gray-600">Join StartupsNet to connect with talent, resources, and potential partners.</p>
+      <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
+      <p className="text-gray-600">Start your journey with StartupsNet by setting up your company account.</p>
       
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="email">
-            Company Email
+            Business Email Address
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -255,9 +283,10 @@ export default function StartupRegistration() {
               id="email" 
               name="email" 
               className={`py-3 px-4 pl-10 block w-full border ${formErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
-              placeholder="contact@yourcompany.com" 
+              placeholder="business@example.com" 
               value={formData.email}
               onChange={handleChange}
+              inputMode="email"
             />
           </div>
           {formErrors.email && (
@@ -266,7 +295,6 @@ export default function StartupRegistration() {
               {formErrors.email}
             </p>
           )}
-          <p className="mt-1 text-xs text-gray-500">Please use your company email address</p>
         </div>
         
         <div>
@@ -278,14 +306,22 @@ export default function StartupRegistration() {
               <Lock size={18} className="text-gray-500" />
             </div>
             <input 
-              type="password" 
+              type={showPassword ? "text" : "password"}
               id="password" 
               name="password" 
-              className={`py-3 px-4 pl-10 block w-full border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
+              className={`py-3 px-4 pl-10 pr-10 block w-full border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
               placeholder="••••••••" 
               value={formData.password}
               onChange={handleChange}
             />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex="-1"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
           {formErrors.password && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -293,7 +329,7 @@ export default function StartupRegistration() {
               {formErrors.password}
             </p>
           )}
-          <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long with numbers and letters</p>
+          <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long</p>
         </div>
         
         <div>
@@ -305,14 +341,22 @@ export default function StartupRegistration() {
               <Lock size={18} className="text-gray-500" />
             </div>
             <input 
-              type="password" 
+              type={showConfirmPassword ? "text" : "password"}
               id="confirmPassword" 
               name="confirmPassword" 
-              className={`py-3 px-4 pl-10 block w-full border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
+              className={`py-3 px-4 pl-10 pr-10 block w-full border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
               placeholder="••••••••" 
               value={formData.confirmPassword}
               onChange={handleChange}
             />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              tabIndex="-1"
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
           {formErrors.confirmPassword && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -379,6 +423,25 @@ export default function StartupRegistration() {
               <option value="Other">Other</option>
             </select>
           </div>
+          {showCustomIndustry && (
+            <div className="mt-2">
+              <input 
+                type="text" 
+                id="customIndustry" 
+                name="customIndustry" 
+                className={`py-3 px-4 block w-full border ${formErrors.customIndustry ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
+                placeholder="Please specify your industry" 
+                value={formData.customIndustry}
+                onChange={handleChange}
+              />
+              {formErrors.customIndustry && (
+                <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <AlertCircle size={14} className="mr-1" />
+                  {formErrors.customIndustry}
+                </p>
+              )}
+            </div>
+          )}
           {formErrors.industry && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
               <AlertCircle size={14} className="mr-1" />
@@ -445,52 +508,169 @@ export default function StartupRegistration() {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="website">
-              Website (optional)
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Globe size={18} className="text-gray-500" />
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="website">
+            Website (optional)
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              <Globe size={18} className="text-gray-500" />
+            </div>
+            <input 
+              type="url" 
+              id="website" 
+              name="website" 
+              className={`py-3 px-4 pl-10 block w-full border ${formErrors.website ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
+              placeholder="https://example.com" 
+              value={formData.website}
+              onChange={handleChange}
+            />
+          </div>
+          {formErrors.website && (
+            <p className="mt-1 text-sm text-red-600 flex items-center">
+              <AlertCircle size={14} className="mr-1" />
+              {formErrors.website}
+            </p>
+          )}
+        </div>
+        
+        {/* Expanded Location Section */}
+        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <h3 className="text-lg font-medium text-gray-800 mb-3">Business Location</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location.street">
+                Street Address
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Home size={18} className="text-gray-500" />
+                </div>
+                <input 
+                  type="text" 
+                  id="location.street" 
+                  name="location.street" 
+                  className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  placeholder="123 Main St, Suite 101" 
+                  value={formData.location.street}
+                  onChange={handleChange}
+                />
               </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location.landmark">
+                Landmark (optional)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Navigation size={18} className="text-gray-500" />
+                </div>
+                <input 
+                  type="text" 
+                  id="location.landmark" 
+                  name="location.landmark" 
+                  className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  placeholder="Near Central Park" 
+                  value={formData.location.landmark}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location.city">
+                City *
+              </label>
               <input 
-                type="url" 
-                id="website" 
-                name="website" 
-                className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="https://example.com" 
-                value={formData.website}
+                type="text" 
+                id="location.city" 
+                name="location.city" 
+                className={`py-3 px-4 block w-full border ${formErrors.location ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
+                placeholder="San Francisco" 
+                value={formData.location.city}
+                onChange={handleChange}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location.state">
+                State/Province
+              </label>
+              <input 
+                type="text" 
+                id="location.state" 
+                name="location.state" 
+                className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="California" 
+                value={formData.location.state}
                 onChange={handleChange}
               />
             </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location">
-              Location
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <MapPin size={18} className="text-gray-500" />
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location.country">
+                Country *
+              </label>
               <input 
                 type="text" 
-                id="location" 
-                name="location" 
-                className={`py-3 px-4 pl-10 block w-full border ${formErrors.location ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
-                placeholder="San Francisco, CA" 
-                value={formData.location}
+                id="location.country" 
+                name="location.country" 
+                className={`py-3 px-4 block w-full border ${formErrors.location ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500`}
+                placeholder="United States" 
+                value={formData.location.country}
                 onChange={handleChange}
               />
             </div>
-            {formErrors.location && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle size={14} className="mr-1" />
-                {formErrors.location}
-              </p>
-            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location.postalCode">
+                {formData.location.country === 'India' ? 'PIN Code' : 'ZIP/Postal Code'}
+              </label>
+              <input 
+                type="text" 
+                id="location.postalCode" 
+                name="location.postalCode" 
+                className="py-3 px-4 block w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder={formData.location.country === 'India' ? '600001' : '94103'} 
+                value={formData.location.postalCode}
+                onChange={handleChange}
+              />
+            </div>
           </div>
+          
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="location.phone">
+              Business Phone (optional but recommended)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Phone size={18} className="text-gray-500" />
+              </div>
+              <input 
+                type="tel" 
+                id="location.phone" 
+                name="location.phone" 
+                className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="+1 (123) 456-7890" 
+                value={formData.location.phone}
+                onChange={handleChange}
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">This will help potential collaborators reach you</p>
+          </div>
+          
+          {formErrors.location && (
+            <p className="mt-2 text-sm text-red-600 flex items-center">
+              <AlertCircle size={14} className="mr-1" />
+              {formErrors.location}
+            </p>
+          )}
         </div>
       </div>
     </div>
