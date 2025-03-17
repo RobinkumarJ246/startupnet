@@ -845,7 +845,8 @@ const Testimonial = ({ quote, author, role, avatar }) => (
   </div>
 );
 
-export default function RegisterPage() {
+// Create a client component that safely uses useSearchParams
+function RegisterWithSearchParams() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const typeParam = searchParams.get('type');
@@ -1103,5 +1104,22 @@ export default function RegisterPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 to-white">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-32 h-32 bg-indigo-200 rounded-full mb-4"></div>
+          <div className="h-6 w-64 bg-indigo-200 rounded mb-4"></div>
+          <div className="h-4 w-48 bg-indigo-100 rounded"></div>
+        </div>
+      </div>
+    }>
+      <RegisterWithSearchParams />
+    </Suspense>
   );
 }
