@@ -20,8 +20,13 @@ import {
   ChevronRight,
   Check,
   ArrowRight,
-  Sparkles
+  Sparkles,
+  Rocket,
+  Code,
+  Zap,
+  Star
 } from 'lucide-react';
+import Navbar from '../components/landing/Navbar';
 
 function Registerform() {
 
@@ -772,9 +777,79 @@ const type = searchParams.get('type');
   );
 }
 
-export default function RegisterLanding() {
+// Account type component with animation effects
+const AccountTypeCard = ({ type, title, icon: Icon, description, features, gradient, isSelected, onClick }) => {
+  return (
+    <div 
+      onClick={() => onClick(type)}
+      className={`relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 group
+        ${isSelected ? 'ring-4 ring-indigo-500 scale-[1.02]' : 'shadow-lg hover:shadow-xl'}`}
+    >
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-90`}></div>
+      
+      {/* Decoration */}
+      <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl transform rotate-12 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div className="absolute -left-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl transform -rotate-12 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      
+      <div className="relative p-8">
+        <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-6 transform transition-transform duration-300 group-hover:scale-110">
+          <Icon size={32} className="text-white" />
+        </div>
+        
+        <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
+        <p className="text-white/90 mb-6 text-sm md:text-base">
+          {description}
+        </p>
+        
+        <ul className="space-y-2 mb-6">
+          {features.map((feature, i) => (
+            <li key={i} className="flex items-center text-white/90 text-sm">
+              <Check className="mr-2 h-4 w-4 text-white/70" />
+              {feature}
+            </li>
+          ))}
+        </ul>
+        
+        <div className="flex items-center text-white mt-auto">
+          <span className="text-sm font-medium">Select to continue</span>
+          <ArrowRight className="ml-2 h-4 w-4 transform transition-transform duration-300 group-hover:translate-x-1" />
+        </div>
+      </div>
+      
+      {isSelected && (
+        <div className="absolute top-4 right-4 bg-white rounded-full p-1">
+          <Check className="h-5 w-5 text-indigo-600" />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Testimonial component
+const Testimonial = ({ quote, author, role, avatar }) => (
+  <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20">
+    <div className="flex items-start mb-4">
+      <div className="flex-shrink-0 mr-4">
+        <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+          {avatar || author.charAt(0)}
+        </div>
+      </div>
+      <div>
+        <p className="text-white/90 italic">"{quote}"</p>
+        <div className="mt-2">
+          <p className="text-white font-medium">{author}</p>
+          <p className="text-white/70 text-sm">{role}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+export default function RegisterPage() {
   const router = useRouter();
-  const [selectedType, setSelectedType] = useState(null);
+  const searchParams = useSearchParams();
+  const typeParam = searchParams.get('type');
+  const [selectedType, setSelectedType] = useState(typeParam || null);
 
   const handleTypeSelect = (type) => {
     setSelectedType(type);
@@ -786,108 +861,247 @@ export default function RegisterLanding() {
     }
   };
 
+  const accountTypes = [
+    {
+      type: 'student',
+      title: 'Student',
+      icon: GraduationCap,
+      description: 'For college and university students looking to connect with startups and build their network.',
+      features: [
+        'Connect with startups for internships',
+        'Join tech clubs and communities',
+        'Build projects with peers',
+        'Access exclusive events'
+      ],
+      gradient: 'from-blue-500 to-indigo-700'
+    },
+    {
+      type: 'startup',
+      title: 'Startup',
+      icon: Rocket,
+      description: 'For emerging companies looking to recruit talent, find resources and scale their business.',
+      features: [
+        'Find and recruit top student talent',
+        'Showcase your products and services',
+        'Connect with other startups',
+        'Participate in pitching events'
+      ],
+      gradient: 'from-emerald-500 to-teal-700'
+    },
+    {
+      type: 'club',
+      title: 'Club',
+      icon: Users,
+      description: 'For university or independent clubs focused on technology, entrepreneurship or innovation.',
+      features: [
+        'Grow your community membership',
+        'Host online and offline events',
+        'Collaborate with startups',
+        'Showcase club projects and activities'
+      ],
+      gradient: 'from-purple-500 to-pink-700'
+    }
+  ];
+
+  const testimonials = [
+    {
+      quote: "Joining as a student opened so many doors for internships and mentoring opportunities!",
+      author: "Priya Sharma",
+      role: "Computer Science Student"
+    },
+    {
+      quote: "We found our technical co-founder through StartupsNet. Game-changer for our startup!",
+      author: "Rahul Mehta",
+      role: "Founder, TechSolve"
+    },
+    {
+      quote: "Our robotics club membership grew by 70% after joining this platform.",
+      author: "Ananya Patel",
+      role: "President, SVCE Robotics Club"
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl">
-            Join <span className="text-blue-600">StartupsNet</span>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+      {/* Navbar */}
+      <Navbar />
+      
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-16 pb-12">
+        {/* Decorative elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute left-[10%] top-[20%] w-72 h-72 bg-indigo-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+          <div className="absolute right-[15%] bottom-[10%] w-80 h-80 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+          <div className="absolute left-[40%] top-[60%] w-64 h-64 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <span className="inline-block px-4 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium mb-6">
+            Join Our Community
+          </span>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-center tracking-tight mb-6">
+            <span className="block">Welcome to</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600">
+              StartupsNet
+            </span>
           </h1>
-          <p className="mt-4 text-xl text-gray-500">
-            Select your account type to get started
+          <p className="max-w-2xl mx-auto text-xl text-gray-600 mb-8">
+            Select your account type below to get started with your registration
+          </p>
+          
+          {/* 3D-like floating items decoration */}
+          <div className="hidden lg:block absolute top-20 right-10 animate-float-slow">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-400 to-indigo-600 rounded-lg shadow-lg transform rotate-12"></div>
+          </div>
+          <div className="hidden lg:block absolute bottom-10 left-10 animate-float-slow-reverse">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-pink-600 rounded-full shadow-lg"></div>
+          </div>
+          <div className="hidden lg:block absolute top-40 left-24 animate-float-medium">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-600 rounded-lg shadow-lg transform -rotate-12"></div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Account Type Selection */}
+      <section className="relative z-10 px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="max-w-7xl mx-auto">
+          {/* Account type cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-12">
+            {accountTypes.map(type => (
+              <AccountTypeCard 
+                key={type.type}
+                {...type}
+                isSelected={selectedType === type.type}
+                onClick={handleTypeSelect}
+              />
+            ))}
+          </div>
+          
+          {/* Continue Button */}
+          <div className="flex justify-center mb-16">
+            <button
+              onClick={handleContinue}
+              disabled={!selectedType}
+              className={`flex items-center px-8 py-4 text-lg font-medium rounded-full shadow-lg transition-all duration-300
+                ${selectedType 
+                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white transform hover:scale-105' 
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+            >
+              Continue to Registration
+              <ArrowRight size={20} className="ml-2" />
+            </button>
+          </div>
+        </div>
+      </section>
+      
+      {/* Benefits Section */}
+      <section className="relative bg-gradient-to-br from-indigo-900 via-blue-800 to-indigo-900 text-white py-16">
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Angled divider without the white element that was hiding content */}
+          <div className="absolute top-0 left-0 right-0 h-16 bg-transparent">
+            <svg className="absolute top-0 w-full h-16 text-indigo-50" preserveAspectRatio="none" viewBox="0 0 1440 80">
+              <path fill="currentColor" d="M0,0 L1440,0 L1440,80 L0,0 Z"></path>
+            </svg>
+          </div>
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600 rounded-full opacity-20 blur-3xl"></div>
+          <div className="absolute top-1/2 -left-24 w-80 h-80 bg-blue-500 rounded-full opacity-20 blur-3xl"></div>
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <div className="max-w-3xl mx-auto text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-6">Why Join StartupsNet?</h2>
+            <p className="text-xl text-indigo-100">Discover the perfect ecosystem for innovation and collaboration</p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 transform transition-transform hover:-translate-y-1 hover:shadow-xl">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                <Globe className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Connect</h3>
+              <p className="text-indigo-100">Build meaningful connections with students, startups, and clubs that share your interests and vision.</p>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 transform transition-transform hover:-translate-y-1 hover:shadow-xl">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                <Zap className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Collaborate</h3>
+              <p className="text-indigo-100">Work together on projects, share ideas, and create innovative solutions with like-minded individuals.</p>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20 transform transition-transform hover:-translate-y-1 hover:shadow-xl">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                <Star className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Grow</h3>
+              <p className="text-indigo-100">Accelerate your personal, academic, or business growth through new opportunities and experiences.</p>
+            </div>
+          </div>
+          
+          {/* Testimonials 
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {testimonials.map((testimonial, index) => (
+              <Testimonial key={index} {...testimonial} />
+            ))}
+          </div>
+          */}
+          
+          {/*}
+          <div className="text-center">
+            <p className="text-indigo-100 mb-6">
+              Join thousands of students, startups, and clubs already on the platform
+            </p>
+            <div className="inline-flex items-center justify-center">
+              <div className="flex -space-x-2 mr-4">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className={`w-10 h-10 rounded-full border-2 border-indigo-800 bg-gradient-to-br from-${['blue', 'indigo', 'purple', 'pink', 'indigo'][i]}-400 to-${['blue', 'indigo', 'purple', 'pink', 'indigo'][i]}-600`}></div>
+                ))}
+                <div className="w-10 h-10 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-medium">1k+</div>
+              </div>
+              <span className="text-indigo-200 text-sm">Active members and growing</span>
+            </div>
+          </div>
+          */}
+        </div>
+      </section>
+      
+      {/* Sign In Link */}
+      <section className="bg-white py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto text-center">
+          <p className="text-gray-600">
+            Already have an account?{' '}
+            <Link href="/login" className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors">
+              Sign in
+            </Link>
           </p>
         </div>
-        
-        {/* Account Type Selection */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div 
-            onClick={() => handleTypeSelect('student')}
-            className={`relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:shadow-xl
-              ${selectedType === 'student' ? 'ring-4 ring-blue-500 scale-105' : 'bg-white'}`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-600 opacity-75"></div>
-            <div className="relative p-8">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-6">
-                <User size={32} className="text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Student</h3>
-              <p className="text-white text-opacity-90 mb-6">
-                For college and university students looking to connect with startups and build their network.
-              </p>
-              <div className="flex items-center text-white">
-                <span>Perfect for internships</span>
-                <Sparkles className="ml-2" size={16} />
-              </div>
-            </div>
-          </div>
-          
-          <div 
-            onClick={() => handleTypeSelect('startup')}
-            className={`relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:shadow-xl
-              ${selectedType === 'startup' ? 'ring-4 ring-blue-500 scale-105' : 'bg-white'}`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-teal-600 opacity-75"></div>
-            <div className="relative p-8">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-6">
-                <Briefcase size={32} className="text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Startup</h3>
-              <p className="text-white text-opacity-90 mb-6">
-                For emerging companies looking to recruit talent, find resources and scale their business.
-              </p>
-              <div className="flex items-center text-white">
-                <span>Find top talent</span>
-                <Sparkles className="ml-2" size={16} />
-              </div>
-            </div>
-          </div>
-          
-          <div 
-            onClick={() => handleTypeSelect('club')}
-            className={`relative overflow-hidden rounded-2xl shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 hover:shadow-xl
-              ${selectedType === 'club' ? 'ring-4 ring-blue-500 scale-105' : 'bg-white'}`}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-600 opacity-75"></div>
-            <div className="relative p-8">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mb-6">
-                <Users size={32} className="text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-2">Club</h3>
-              <p className="text-white text-opacity-90 mb-6">
-                For university or independent clubs focused on entrepreneurship, technology or innovation.
-              </p>
-              <div className="flex items-center text-white">
-                <span>Grow your community</span>
-                <Sparkles className="ml-2" size={16} />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Continue Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={handleContinue}
-            disabled={!selectedType}
-            className={`flex items-center px-8 py-3 text-lg font-medium rounded-full shadow-lg transition-all duration-300
-              ${selectedType 
-                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-          >
-            Continue to Registration
-            <ArrowRight size={20} className="ml-2" />
-          </button>
-        </div>
-        
-        {/* Sign In Link */}
-        <p className="mt-8 text-center text-gray-500">
-          Already have an account?{' '}
-          <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-            Sign in
-          </Link>
-        </p>
-      </div>
+      </section>
+      
+      {/* Add animations */}
+      <style jsx global>{`
+        @keyframes float-slow {
+          0%, 100% { transform: translateY(0) rotate(12deg); }
+          50% { transform: translateY(-20px) rotate(12deg); }
+        }
+        @keyframes float-slow-reverse {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(20px); }
+        }
+        @keyframes float-medium {
+          0%, 100% { transform: translateY(0) rotate(-12deg); }
+          50% { transform: translateY(-10px) rotate(-12deg); }
+        }
+        .animate-float-slow {
+          animation: float-slow 8s ease-in-out infinite;
+        }
+        .animate-float-slow-reverse {
+          animation: float-slow-reverse 7s ease-in-out infinite;
+        }
+        .animate-float-medium {
+          animation: float-medium 6s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

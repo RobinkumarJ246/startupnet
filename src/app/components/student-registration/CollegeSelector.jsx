@@ -47,7 +47,13 @@ export default function CollegeSelector({
     const fetchColleges = async () => {
       try {
         setIsLoadingColleges(true);
-        let endpoint = `/api/colleges?university=${encodeURIComponent(formData.university)}`;
+        
+        // Extract the university name without the ID part if present
+        const universityName = formData.university.includes('(Id:') 
+          ? formData.university.split('(Id:')[0].trim() 
+          : formData.university;
+        
+        let endpoint = `/api/colleges?university=${encodeURIComponent(universityName)}`;
         
         if (formData.state) {
           endpoint += `&state=${encodeURIComponent(formData.state)}`;
@@ -57,6 +63,8 @@ export default function CollegeSelector({
           endpoint += `&district=${encodeURIComponent(formData.district)}`;
         }
         
+        console.log('Fetching colleges from:', endpoint);
+        
         const response = await fetch(endpoint);
         
         if (!response.ok) {
@@ -64,7 +72,17 @@ export default function CollegeSelector({
         }
         
         const data = await response.json();
-        setColleges(data.colleges || []);
+        
+        // Process college data to remove duplicates
+        if (data.colleges && Array.isArray(data.colleges)) {
+          const uniqueColleges = [...new Set(data.colleges.map(college => 
+            typeof college === 'string' ? college : college.name
+          ))];
+          setColleges(uniqueColleges);
+        } else {
+          setColleges([]);
+        }
+        
         setError(null);
       } catch (err) {
         console.error('Error fetching colleges:', err);
@@ -203,9 +221,6 @@ export default function CollegeSelector({
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <label className="block text-sm font-medium text-gray-700" htmlFor="college">
-          College/Department
-        </label>
         <button
           type="button"
           onClick={toggleCustomCollege}

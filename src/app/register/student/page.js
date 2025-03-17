@@ -12,7 +12,9 @@ import {
   BookOpen,
   ChevronLeft,
   Check,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 // Import the AcademicForm component
@@ -23,6 +25,8 @@ export default function StudentRegistration() {
   const [step, setStep] = useState(1);
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     // Account details
     email: '',
@@ -232,6 +236,7 @@ export default function StudentRegistration() {
               placeholder="your.email@university.edu" 
               value={formData.email}
               onChange={handleChange}
+              inputMode="email"
             />
           </div>
           {formErrors.email && (
@@ -252,14 +257,22 @@ export default function StudentRegistration() {
               <Lock size={18} className="text-gray-500" />
             </div>
             <input 
-              type="password" 
+              type={showPassword ? "text" : "password"}
               id="password" 
               name="password" 
-              className={`py-3 px-4 pl-10 block w-full border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              className={`py-3 px-4 pl-10 pr-10 block w-full border ${formErrors.password ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
               placeholder="••••••••" 
               value={formData.password}
               onChange={handleChange}
             />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowPassword(!showPassword)}
+              tabIndex="-1"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
           {formErrors.password && (
             <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -279,14 +292,22 @@ export default function StudentRegistration() {
               <Lock size={18} className="text-gray-500" />
             </div>
             <input 
-              type="password" 
+              type={showConfirmPassword ? "text" : "password"}
               id="confirmPassword" 
               name="confirmPassword" 
-              className={`py-3 px-4 pl-10 block w-full border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              className={`py-3 px-4 pl-10 pr-10 block w-full border ${formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
               placeholder="••••••••" 
               value={formData.confirmPassword}
               onChange={handleChange}
             />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              tabIndex="-1"
+            >
+              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
           </div>
           {formErrors.confirmPassword && (
             <p className="mt-1 text-sm text-red-600 flex items-center">

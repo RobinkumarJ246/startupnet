@@ -187,7 +187,7 @@ export default function FeaturedStartups() {
           </Link>
         </div>
         
-        {/* Partner logos */}
+        {/* Partner logos
         <div className="mt-20">
           <div className="text-center mb-8">
             <h3 className="text-lg font-medium text-gray-600">Trusted by innovative companies</h3>
@@ -198,6 +198,7 @@ export default function FeaturedStartups() {
             ))}
           </div>
         </div>
+         */}
       </div>
 
       {/* Add spotlight animation styles */}

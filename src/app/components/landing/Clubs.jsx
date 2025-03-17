@@ -1,22 +1,13 @@
 import { useState } from 'react';
 import Image from 'next/image';
-import { Code, Cpu, Bot as RobotIcon, Palette, Brain, Globe, ArrowRight, Users, Calendar, MessageSquare, Info, Lock, LogIn } from 'lucide-react';
+import { Code, Cpu, Bot as RobotIcon, Palette, Brain, Globe, ArrowRight, Users, Calendar, MessageSquare, Info, Lock, LogIn, PlusCircle, Sparkles } from 'lucide-react';
 
 const clubs = [
-  {
-    name: "Coding Club",
-    icon: "code",
-    logo: "/images/clubs/coding-club.png",
-    description: "Master programming languages, build projects, and participate in hackathons with peers.",
-    color: "from-blue-400 to-indigo-600",
-    bgPattern: "radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 90%)",
-    isUniversityAffiliated: false
-  },
   {
     name: "Coders' Forum",
     icon: "brain",
     logo: "/images/clubs/coders_forum.png",
-    description: "Peer mentoring and collaborative coding club organized by Sri Venkateswara College of Engineering",
+    description: "Coders Forum is a peer mentoring and collaborative coding club at Sri Venkateswara College of Engineering (SVCE). It fosters a learning community where students collaborate on projects and mentor each other. The club organizes workshops, hackathons, and coding sessions to enhance skills and innovation.",
     color: "from-red-200 via-cyan-600 to-blue-800",
     bgPattern: "radial-gradient(circle at 90% 10%, rgba(28, 195, 227, 0.1) 0%, rgba(236, 72, 153, 0.05) 90%)",
     isUniversityAffiliated: true,
@@ -27,7 +18,7 @@ const clubs = [
     name: "GDSC SVCE",
     icon: "cpu",
     logo: "/images/clubs/gdsc.png",
-    description: "Google Developer Students Club of Sri Venkateswara College of Engineering",
+    description: "The Google Developer Student Clubs (GDSC) of Sri Venkateswara College of Engineering (SVCE) is a student-driven community that fosters learning and innovation in technology. It provides hands-on experience through workshops, hackathons, and projects.",
     color: "from-blue-500 via-yellow-500 to-green-500",
     bgPattern: "radial-gradient(circle at 40% 60%, rgba(6, 182, 212, 0.1) 0%, rgba(59, 130, 246, 0.05) 90%)",
     isUniversityAffiliated: true,
@@ -116,8 +107,8 @@ export default function Clubs() {
                 </div>
                 
                 <div className="flex items-center mb-4">
-                  <div className={`w-12 h-12 rounded-lg ${logoError[index] ? `bg-gradient-to-r ${club.color} flex items-center justify-center` : 'relative overflow-hidden'} mr-4`}>
-                    {logoError[index] ? (
+                  <div className={`w-12 h-12 rounded-lg ${!club.logo || logoError[index] ? `bg-gradient-to-r ${club.color} flex items-center justify-center` : 'relative overflow-hidden'} mr-4`}>
+                    {!club.logo || logoError[index] ? (
                       <IconComponent type={club.icon} className="h-6 w-6 text-white" />
                     ) : (
                       <Image 
@@ -195,6 +186,28 @@ export default function Clubs() {
               </div>
             </div>
           ))}
+
+          {/* "More Clubs Coming Soon" Card */}
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-lg overflow-hidden border border-dashed border-gray-300 flex flex-col items-center justify-center p-8 text-center transform transition-all duration-300 hover:-translate-y-2">
+            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+              <PlusCircle className="h-8 w-8 text-indigo-500" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">More Clubs Coming Soon</h3>
+            <p className="text-gray-600 mb-6">
+              We're constantly featuring innovative tech communities. Check back soon!
+            </p>
+            <div className="mt-4 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg inline-flex items-center">
+              <Sparkles className="h-4 w-4 mr-2" />
+              <span className="font-medium">Your club could be here!</span>
+            </div>
+            <a
+              href="/register/club"
+              className="mt-6 inline-flex items-center px-4 py-2 bg-white border border-indigo-300 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-300 shadow-sm"
+            >
+              Register Your Club
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
+          </div>
         </div>
 
         <div className="mt-16">

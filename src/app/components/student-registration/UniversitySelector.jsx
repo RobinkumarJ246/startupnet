@@ -61,14 +61,35 @@ export default function UniversitySelector({
         
         if (response.ok) {
           if (formData.country === 'India') {
-            // Process the new university data format
-            setUniversities(data.universities.map(uni => ({
-              label: uni.id ? `${uni.name} (Id: ${uni.id})` : uni.name,
-              value: uni.value || (uni.id ? `${uni.name} (Id: ${uni.id})` : uni.name)
-            })));
+            // Process the university data and remove duplicates
+            const uniqueUniversities = new Map();
+            
+            data.universities.forEach(uni => {
+              const key = uni.name.toLowerCase();
+              const label = uni.id ? `${uni.name} (Id: ${uni.id})` : uni.name;
+              const value = uni.name;
+              
+              // Only add if this university name hasn't been seen yet
+              if (!uniqueUniversities.has(key)) {
+                uniqueUniversities.set(key, { label, value });
+              }
+            });
+            
+            // Convert Map to array
+            setUniversities(Array.from(uniqueUniversities.values()));
           } else {
-            // Format for international universities
-            setUniversities(data.universities.map(uni => uni.name));
+            // Format for international universities with deduplication
+            const uniqueNames = new Set();
+            const uniqueUniversities = [];
+            
+            data.universities.forEach(uni => {
+              if (!uniqueNames.has(uni.name.toLowerCase())) {
+                uniqueNames.add(uni.name.toLowerCase());
+                uniqueUniversities.push(uni.name);
+              }
+            });
+            
+            setUniversities(uniqueUniversities);
           }
         } else {
           console.error('Failed to fetch universities:', data.error);
