@@ -19,9 +19,7 @@ export async function createSession(email, role) {
   // Fix: Await cookies() before calling .set()
   const cookieStore = await cookies(); 
   cookieStore.set("session", session, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    // httpOnly: true,
     expires: expiresAt,
     path: "/",
   });
