@@ -97,7 +97,7 @@ export default function LoginPage() {
 
       // Redirect after a short delay
       setTimeout(() => {
-        router.push('/profile');
+        router.push('/explore');
       }, 1000);
       
     } catch (err) {
@@ -159,7 +159,7 @@ export default function LoginPage() {
       
       // Redirect after a short delay
       setTimeout(() => {
-        router.push('/profile');
+        router.push('/explore');
       }, 1000);
     } catch (err) {
       console.error('Login error:', err);

@@ -1,64 +1,103 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import * as jose from 'jose';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Use a TextEncoder to convert your secret to Uint8Array
+const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
 
 export async function middleware(request) {
+  console.log("Middleware running on:", request.nextUrl.pathname);
+  
   // Public paths that don't require authentication
-  const publicPaths = ['/login', '/register', '/api/auth/login', '/api/register'];
-  const isPublicPath = publicPaths.some(path => request.nextUrl.pathname.startsWith(path));
+  const publicPaths = [
+    '/', 
+    '/login', 
+    '/register',
+    '/register/student',
+    '/register/startup',
+    '/register/club',
+    '/api/auth/login', 
+    '/api/auth/test-login', 
+    '/api/register',
+    '/api/register/club',
+    '/api/register/student',
+    '/api/register/startup',
+    '/api/profile/image/upload',
+    '/api/profile/image/[id]'
 
+  ];  
+  const isPublicPath = publicPaths.some(path => request.nextUrl.pathname === path || 
+                                               request.nextUrl.pathname.startsWith('/api/auth/'));
+  
   // Get token from cookie
-  const token = request.cookies.get('auth_token')?.value;
+  const token = request.cookies.get('token')?.value;
+  console.log("Token present:", !!token);
+
+  // Helper function to verify token
+  async function verifyToken() {
+    try {
+      if (!token) return null;
+      
+      const { payload } = await jose.jwtVerify(token, secret);
+      return payload;
+    } catch (error) {
+      console.log("Token verification error:", error.message);
+      return null;
+    }
+  }
 
   // If it's a public path and user is logged in, redirect to explore
   if (isPublicPath && token) {
-    try {
-      jwt.verify(token, JWT_SECRET);
+    const payload = await verifyToken();
+    if (payload) {
+      console.log("Valid token on public path, redirecting to /explore");
       return NextResponse.redirect(new URL('/explore', request.url));
-    } catch (error) {
-      // Token is invalid, continue to public path
+    } else {
+      console.log("Invalid token on public path");
+      // Token is invalid, clear it
+      const response = NextResponse.next();
+      response.cookies.delete('token');
+      return response;
     }
   }
 
   // If it's a protected path and user is not logged in, redirect to login
   if (!isPublicPath && !token) {
+    console.log("No token on protected path, redirecting to /login");
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // For protected paths, verify token
   if (!isPublicPath && token) {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
+    const payload = await verifyToken();
+    if (payload) {
+      console.log("Valid token on protected path, proceeding");
+      
       // Add user info to headers for use in protected routes
       const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('x-user-id', decoded.userId);
-      requestHeaders.set('x-user-type', decoded.userType);
-      requestHeaders.set('x-user-email', decoded.email);
+      requestHeaders.set('x-user-id', payload.userId || '');
+      requestHeaders.set('x-user-type', payload.userType || '');
+      requestHeaders.set('x-user-email', payload.email || '');
 
       return NextResponse.next({
         request: {
           headers: requestHeaders,
         },
       });
-    } catch (error) {
+    } else {
+      console.log("Invalid token on protected path");
       // Token is invalid, redirect to login
-      return NextResponse.redirect(new URL('/login', request.url));
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.delete('token'); // Clear the invalid token
+      return response;
     }
   }
 
+  console.log("Default pass-through");
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|assets).*)',
   ],
-}; 
+};

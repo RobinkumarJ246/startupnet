@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '../../../../../../lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, GridFSBucket } from 'mongodb';
 
 /**
  * GET handler to retrieve a user's profile image
  * Uses the user ID to fetch the image from GridFS
  */
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   try {
-    const userId = params.id;
+    // Extract the id parameter correctly from context
+    const userId = context.params.id;
     
     console.log('Fetching profile image for user:', userId);
     
@@ -32,7 +33,9 @@ export async function GET(request, { params }) {
       try {
         console.log(`Checking database ${dbName} for user image`);
         db = client.db(dbName);
-        bucket = new ObjectId.GridFSBucket(db, {
+        
+        // Fix: Use GridFSBucket directly
+        bucket = new GridFSBucket(db, {
           bucketName: 'profileImages'
         });
 
@@ -120,4 +123,4 @@ export async function GET(request, { params }) {
       { status: 500 }
     );
   }
-} 
+}

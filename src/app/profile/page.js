@@ -488,28 +488,45 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('about');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    // Get user data from localStorage
-    try {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
+  
+  const loadUserProfile = async () => {
+    // Get basic user data from localStorage
+    console.log("calling loaduserprofile")
+    const userData = localStorage.getItem('user');
+    console.log(userData);
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      
+      // Process any complex objects to ensure they don't cause rendering issues
+      const processedUser = {...parsedUser};
+      
+      // Set the user data we have so far
+      setUser(processedUser);
+      
+      try {
+        // Make a separate request to get the current profile image URL
+        const imageResponse = await fetch(`/api/profile/image/${processedUser.id}`);
         
-        // Process any complex objects to ensure they don't cause rendering issues
-        const processedUser = {...parsedUser};
-        
-        // Don't stringify complex objects as that causes rendering issues
-        // Instead, let the formatValue functions in the components handle them
-        setUser(processedUser);
-      } else {
-        router.push('/login');
+        if (imageResponse.ok) {
+          // Instead of trying to parse as JSON, use the URL directly
+          const imageUrl = `/api/profile/image/${processedUser.id}`;
+          
+          // Update the user object with the image URL
+          setUser(prevUser => ({
+            ...prevUser,
+            profileImageUrl: imageUrl
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile image:', error);
+        // No need to redirect - just continue without the image
       }
-    } catch (error) {
-      console.error('Error parsing user data:', error);
-      localStorage.removeItem('user'); // Clear invalid data
+    } else {
       router.push('/login');
     }
+  };
+  useEffect(() => {
+    loadUserProfile();
     setLoading(false);
   }, [router]);
 

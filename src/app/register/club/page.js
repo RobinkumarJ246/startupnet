@@ -179,6 +179,10 @@ export default function ClubRegistration() {
         delete formDataForAPI.confirmPassword;
       }
 
+      // Remove logo from JSON payload since it's handled separately
+      if (formDataForAPI.logo) {
+        delete formDataForAPI.logo;
+      }
       const response = await fetch('/api/register/club', {
         method: 'POST',
         headers: {

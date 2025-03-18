@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import clientPromise from '../../../../../../lib/mongodb';
-import { ObjectId } from 'mongodb';
+import { ObjectId, GridFSBucket } from 'mongodb';
 
 /**
  * POST handler to upload a user's profile image to GridFS
@@ -109,7 +109,7 @@ export async function POST(request) {
     }
 
     // Set up GridFS in the database where we found the user
-    const bucket = new ObjectId.GridFSBucket(db, {
+    const bucket = new GridFSBucket(db, {
       bucketName: 'profileImages'
     });
 
@@ -132,16 +132,19 @@ export async function POST(request) {
     
     // Upload the file
     return new Promise((resolve) => {
+      let fileId = null;
+      
       uploadStream.on('finish', async (fileInfo) => {
         try {
-          console.log('File uploaded successfully:', fileInfo._id.toString());
+          fileId = fileInfo._id.toString();
+          console.log('File uploaded successfully:', fileId);
           
           // Update user record to reference the profile image
           const updateResult = await userCollection.updateOne(
             { _id: userObjectId },
             { 
               $set: { 
-                profileImage: fileInfo._id.toString(),
+                profileImage: fileId,
                 updatedAt: new Date()
               } 
             }
@@ -156,7 +159,7 @@ export async function POST(request) {
           resolve(NextResponse.json(
             { 
               message: 'Profile image uploaded successfully',
-              fileId: fileInfo._id.toString() 
+              fileId: fileId
             },
             { status: 201 }
           ));
@@ -166,7 +169,7 @@ export async function POST(request) {
             { 
               message: 'Image uploaded but user record not updated',
               error: updateError.message,
-              fileId: fileInfo._id.toString() 
+              fileId: fileId // Using the saved fileId
             },
             { status: 207 } // Partial success
           ));
@@ -193,4 +196,4 @@ export async function POST(request) {
       { status: 500 }
     );
   }
-} 
+}

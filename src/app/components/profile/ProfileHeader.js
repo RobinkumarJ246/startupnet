@@ -201,12 +201,12 @@ export default function ProfileHeader({ user, onEditClick }) {
   const hasSkills = skillsList.length > 0;
 
   // Check if user has a profile picture - Check multiple possible field names
-  const hasProfilePic = user.profileImage || user.profilePicture || user.avatar || user.logo;
+  const hasProfilePic =user.profileImageUrl || user.profileImage || user.profilePicture || user.avatar || user.logo;
   const profilePicUrl = hasProfilePic 
-    ? `/api/profile/image/${user._id}`
+    ? `/api/profile/image/${user.id}`
     : null;
     
-  console.log('Profile pic data:', { hasProfilePic, userId: user._id });
+  console.log('Profile pic data:', { hasProfilePic, userId: user.id });
 
   return (
     <div className="bg-white shadow rounded-xl overflow-hidden mb-8">

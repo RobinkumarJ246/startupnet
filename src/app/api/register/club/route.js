@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 
 const validateFormData = (data) => {
+  console.log('Validating form data:', JSON.stringify(data, null, 2));
   const errors = {};
 
   if (!data.email) errors.email = "Email is required";
@@ -20,38 +21,56 @@ const validateFormData = (data) => {
   if (!data.fullName) errors.fullName = "Contact person name is required";
   if (data.mainActivities.length === 0) errors.mainActivities = "Please select at least one activity";
 
+  console.log('Validation errors:', Object.keys(errors).length > 0 ? errors : 'None');
   return errors;
 };
 
 export async function POST(request) {
+  console.log('API endpoint hit: /api/register/club');
+  
   try {
     // Parse the request body
+    console.log('Parsing request body...');
     const data = await request.json();
+    console.log('Request data received:', JSON.stringify(data, null, 2));
     
     // Validate the form data
+    console.log('Validating form data...');
     const validationErrors = validateFormData(data);
     if (Object.keys(validationErrors).length > 0) {
+      console.log('Validation failed with errors:', validationErrors);
       return NextResponse.json({ errors: validationErrors }, { status: 400 });
     }
+    console.log('Validation passed');
 
     // Hash the password
+    console.log('Hashing password...');
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(data.password, salt);
+    console.log('Password hashed successfully');
     
     // Connect to MongoDB
+    console.log('Connecting to MongoDB...');
     const client = await clientPromise;
+    console.log('MongoDB connection established');
+    
     const db = client.db("users");
+    console.log('Accessing "users" database');
     
     // Check if email already exists
+    console.log('Checking if email exists:', data.email);
     const existingClub = await db.collection("clubs").findOne({ email: data.email });
     if (existingClub) {
+      console.log('Email already exists in database');
       return NextResponse.json(
         { errors: { email: "Email is already registered" } }, 
         { status: 400 }
       );
     }
+    console.log('Email is available');
 
     // Prepare club data for storage
+    console.log('Preparing club data for storage...');
     // Remove confirmPassword as we don't need to store it
     const { confirmPassword, ...clubDataToStore } = data;
     
@@ -63,13 +82,17 @@ export async function POST(request) {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    console.log('Club document prepared');
 
     // Insert the club into the database
+    console.log('Inserting club into database...');
     const result = await db.collection("clubs").insertOne(newClub);
+    console.log('Club inserted successfully with ID:', result.insertedId);
 
     // Return the club data without the password
     const { password, ...clubWithoutPassword } = newClub;
     
+    console.log('Sending successful response');
     return NextResponse.json({
       message: "Registration successful",
       club: clubWithoutPassword,
@@ -77,9 +100,16 @@ export async function POST(request) {
     }, { status: 201 });
   } catch (error) {
     console.error('Error in club registration:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', JSON.stringify({
+      name: error.name,
+      message: error.message,
+      code: error.code
+    }, null, 2));
+    
     return NextResponse.json(
       { message: 'An error occurred during registration', error: error.message }, 
       { status: 500 }
     );
   }
-} 
+}
