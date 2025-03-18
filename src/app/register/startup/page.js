@@ -203,26 +203,86 @@ export default function StartupRegistration() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateStep(step)) return;
-    
-    // Only proceed with submission on the final step
-    if (step !== 3) {
-      handleNext();
-      return;
-    }
     
     setLoading(true);
     
     try {
-      // Here you would typically call your API to register the company
-      console.log('Submitting startup registration:', formData);
+      // First register the user
+      const response = await fetch('/api/register/startup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.errors) {
+          setFormErrors(errorData.errors);
+        } else {
+          throw new Error(`Network response was not ok: ${response.status}`);
+        }
+        setLoading(false);
+        return;
+      }
       
-      // Handle successful registration
-      router.push('/registration-success?type=startup');
+      const data = await response.json();
+      console.log('Registration successful:', data);
+      
+      // Save user data to localStorage for automatic login
+      if (data.user) {
+        // Add the user type to the data
+        const userData = {
+          ...data.user,
+          type: 'startup',
+          _id: data.id
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      // If there's a logo, upload it
+      if (formData.logo && data.id) {
+        try {
+          const logoFormData = new FormData();
+          logoFormData.append('userId', data.id);
+          logoFormData.append('userType', 'startup');
+          logoFormData.append('file', formData.logo);
+          
+          console.log('Uploading profile image for startup:', {
+            userId: data.id,
+            userType: 'startup',
+            fileSize: formData.logo.size,
+            fileName: formData.logo.name,
+            fileType: formData.logo.type
+          });
+          
+          const logoResponse = await fetch('/api/profile/image/upload', {
+            method: 'POST',
+            body: logoFormData,
+          });
+          
+          if (!logoResponse.ok) {
+            const errorData = await logoResponse.json();
+            console.error('Failed to upload logo but user was registered:', errorData);
+          } else {
+            const logoData = await logoResponse.json();
+            console.log('Logo uploaded successfully:', logoData);
+          }
+        } catch (logoError) {
+          console.error('Error uploading logo:', logoError);
+          // We don't want to block registration if only the logo upload fails
+        }
+      } else {
+        console.log('No logo to upload or missing user ID:', { 
+          hasLogo: !!formData.logo, 
+          userId: data.id 
+        });
+      }
+      
+      // Navigate to profile page instead of success page since we're already logged in
+      router.push('/profile');
     } catch (error) {
       console.error('Registration error:', error);
       setFormErrors({

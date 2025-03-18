@@ -14,7 +14,8 @@ import {
   Check,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Image
 } from 'lucide-react';
 
 // Import the AcademicForm component
@@ -53,6 +54,10 @@ export default function StudentRegistration() {
     githubUrl: '',
     interests: []
   });
+
+  // Add new state for profile image
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
 
   // Predefined options
   const skillOptions = [
@@ -153,26 +158,72 @@ export default function StudentRegistration() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateStep(step)) return;
-    
-    // Only proceed with submission on the final step
-    if (step !== 3) {
-      handleNext();
-      return;
-    }
     
     setLoading(true);
     
     try {
-      // Here you would typically call your API to register the user
-      console.log('Submitting student registration:', formData);
+      // First register the user
+      const response = await fetch('/api/register/student', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        console.error('Error response:', errorResponse);
+        if (errorResponse.errors) {
+          setFormErrors(errorResponse.errors);
+        } else {
+          throw new Error(`Network response was not ok: ${response.status}`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('Registration successful:', data);
       
-      // Handle successful registration
-      router.push('/registration-success?type=student');
+      // Save user data to localStorage for automatic login
+      if (data.user) {
+        // Add the user type to the data
+        const userData = {
+          ...data.user,
+          type: 'student',
+          _id: data.id
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      // If there's a profile image, upload it
+      if (profileImage && data.id) {
+        try {
+          const imageFormData = new FormData();
+          imageFormData.append('userId', data.id);
+          imageFormData.append('userType', 'student');
+          imageFormData.append('file', profileImage);
+          
+          const imageResponse = await fetch('/api/profile/image/upload', {
+            method: 'POST',
+            body: imageFormData,
+          });
+          
+          if (!imageResponse.ok) {
+            console.error('Failed to upload profile image, but user was registered');
+          } else {
+            console.log('Profile image uploaded successfully');
+          }
+        } catch (imageError) {
+          console.error('Error uploading profile image:', imageError);
+          // We don't want to block registration if only the image upload fails
+        }
+      }
+      
+      // Navigate to profile page instead of success page since we're already logged in
+      router.push('/profile');
     } catch (error) {
       console.error('Registration error:', error);
       setFormErrors({
@@ -200,7 +251,7 @@ export default function StudentRegistration() {
                 {i + 1 < step ? <Check size={20} /> : i + 1}
               </div>
               <span className="text-xs mt-1 font-medium">
-                {i === 0 ? 'Account' : i === 1 ? 'Academic' : 'Skills'}
+                {i === 0 ? 'Account' : i === 1 ? 'Academic' : 'Personalization'}
               </span>
             </div>
           ))}
@@ -333,10 +384,49 @@ export default function StudentRegistration() {
 
   const renderSkillsAndInterestsStep = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Skills & Interests</h2>
-      <p className="text-gray-600">Help us personalize your experience by telling us about your skills and interests.</p>
+      <h2 className="text-2xl font-bold text-gray-900">Personalization</h2>
+      <p className="text-gray-600">Help us personalize your experience by telling us about yourself.</p>
       
       <div className="space-y-6">
+        {/* Profile Picture Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Profile Picture (optional)
+          </label>
+          <div className="flex items-center space-x-4">
+            <div className="h-24 w-24 rounded-lg overflow-hidden border-2 border-gray-200 flex items-center justify-center bg-gray-50">
+              {profileImagePreview ? (
+                <img 
+                  src={profileImagePreview} 
+                  alt="Profile Preview" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="h-12 w-12 text-gray-400" />
+              )}
+            </div>
+            <div>
+              <label className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                <Image size={16} className="mr-2" />
+                Upload Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleProfileImageChange}
+                />
+              </label>
+              <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 5MB</p>
+            </div>
+          </div>
+          {formErrors.profileImage && (
+            <p className="mt-1 text-sm text-red-600 flex items-center">
+              <AlertCircle size={14} className="mr-1" />
+              {formErrors.profileImage}
+            </p>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Select your skills (optional)
@@ -450,6 +540,49 @@ export default function StudentRegistration() {
       </div>
     </div>
   );
+
+  // Add handler for profile image
+  const handleProfileImageChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // Check file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setFormErrors(prev => ({
+          ...prev,
+          profileImage: "Image must be less than 5MB"
+        }));
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        setFormErrors(prev => ({
+          ...prev,
+          profileImage: "File must be an image"
+        }));
+        return;
+      }
+      
+      setProfileImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfileImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+      
+      // Clear any previous errors
+      if (formErrors.profileImage) {
+        setFormErrors(prev => {
+          const newErrors = {...prev};
+          delete newErrors.profileImage;
+          return newErrors;
+        });
+      }
+    }
+  };
 
   const renderStepContent = () => {
     switch(step) {

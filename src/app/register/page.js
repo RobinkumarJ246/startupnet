@@ -881,7 +881,7 @@ function RegisterWithSearchParams() {
     },
     {
       type: 'club',
-      title: 'Tech Club',
+      title: 'Club',
       icon: Users,
       description: 'For university tech clubs, coding groups, and student organizations',
       features: ['Promote your events', 'Connect with other clubs', 'Recruit members'],

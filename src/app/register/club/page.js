@@ -166,32 +166,87 @@ export default function ClubRegistration() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateStep(step)) return;
-    
-    // Only proceed with submission on the final step
-    if (step !== 3) {
-      handleNext();
-      return;
-    }
     
     setLoading(true);
     
     try {
-      // Here you would typically call your API to register the club
-      console.log('Submitting club registration:', formData);
+      // Convert the form data to a format suitable for API submission
+      const formDataForAPI = { ...formData };
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Remove confirmPassword as it's not needed by the API
+      if (formDataForAPI.confirmPassword) {
+        delete formDataForAPI.confirmPassword;
+      }
+
+      const response = await fetch('/api/register/club', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formDataForAPI),
+      });
       
-      // Handle successful registration
-      router.push('/registration-success?type=club');
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Registration failed:', data);
+        
+        if (data.errors) {
+          setFormErrors(data.errors);
+        } else {
+          setFormErrors({
+            submit: data.message || 'Registration failed. Please try again.'
+          });
+        }
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Registration successful:', data);
+      
+      // Save user data to localStorage for automatic login
+      if (data.user) {
+        // Add the user type to the data
+        const userData = {
+          ...data.user,
+          type: 'club',
+          _id: data.id
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      // If there's a logo, upload it
+      if (formData.logo && data.id) {
+        try {
+          const imageFormData = new FormData();
+          imageFormData.append('userId', data.id);
+          imageFormData.append('userType', 'club');
+          imageFormData.append('file', formData.logo);
+          
+          const imageResponse = await fetch('/api/profile/image/upload', {
+            method: 'POST',
+            body: imageFormData,
+          });
+          
+          if (!imageResponse.ok) {
+            console.error('Failed to upload profile image, but club was registered');
+          } else {
+            console.log('Profile image uploaded successfully');
+          }
+        } catch (imageError) {
+          console.error('Error uploading profile image:', imageError);
+          // We don't want to block registration if only the image upload fails
+        }
+      }
+      
+      // Navigate directly to profile page instead of success page
+      router.push('/profile');
     } catch (error) {
       console.error('Registration error:', error);
       setFormErrors({
         submit: 'There was an error processing your registration. Please try again.'
       });
-    } finally {
       setLoading(false);
     }
   };
