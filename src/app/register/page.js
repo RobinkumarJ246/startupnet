@@ -847,10 +847,10 @@ const Testimonial = ({ quote, author, role, avatar }) => (
 
 // Create a client component that safely uses useSearchParams
 function RegisterWithSearchParams() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const typeParam = searchParams.get('type');
-  const [selectedType, setSelectedType] = useState(typeParam || null);
+  const type = searchParams.get('type');
+  const router = useRouter();
+  const [selectedType, setSelectedType] = useState(type || null);
 
   const handleTypeSelect = (type) => {
     setSelectedType(type);
@@ -867,40 +867,25 @@ function RegisterWithSearchParams() {
       type: 'student',
       title: 'Student',
       icon: GraduationCap,
-      description: 'For college and university students looking to connect with startups and build their network.',
-      features: [
-        'Connect with startups for internships',
-        'Join tech clubs and communities',
-        'Build projects with peers',
-        'Access exclusive events'
-      ],
-      gradient: 'from-blue-500 to-indigo-700'
+      description: 'For university students looking to connect with startups and tech clubs',
+      features: ['Access to internship opportunities', 'Connect with startups', 'Join tech clubs'],
+      gradient: 'from-blue-400 to-blue-600'
     },
     {
       type: 'startup',
       title: 'Startup',
       icon: Rocket,
-      description: 'For emerging companies looking to recruit talent, find resources and scale their business.',
-      features: [
-        'Find and recruit top student talent',
-        'Showcase your products and services',
-        'Connect with other startups',
-        'Participate in pitching events'
-      ],
-      gradient: 'from-emerald-500 to-teal-700'
+      description: 'For startups looking to connect with student talent and other startups',
+      features: ['Post job listings', 'Connect with student talent', 'Join startup community'],
+      gradient: 'from-emerald-400 to-emerald-600'
     },
     {
       type: 'club',
-      title: 'Club',
+      title: 'Tech Club',
       icon: Users,
-      description: 'For university or independent clubs focused on technology, entrepreneurship or innovation.',
-      features: [
-        'Grow your community membership',
-        'Host online and offline events',
-        'Collaborate with startups',
-        'Showcase club projects and activities'
-      ],
-      gradient: 'from-purple-500 to-pink-700'
+      description: 'For university tech clubs, coding groups, and student organizations',
+      features: ['Promote your events', 'Connect with other clubs', 'Recruit members'],
+      gradient: 'from-purple-400 to-purple-600'
     }
   ];
 
@@ -924,8 +909,7 @@ function RegisterWithSearchParams() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-      {/* Navbar */}
-      <Navbar />
+      <Navbar forceLight={true} />
       
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-16 pb-12">
@@ -936,7 +920,7 @@ function RegisterWithSearchParams() {
           <div className="absolute left-[40%] top-[60%] w-64 h-64 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-20"></div>
         </div>
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center mt-4">
           <span className="inline-block px-4 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium mb-6">
             Join Our Community
           </span>
@@ -1066,7 +1050,6 @@ function RegisterWithSearchParams() {
           */}
         </div>
       </section>
-      
       {/* Sign In Link */}
       <section className="bg-white py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
@@ -1078,7 +1061,6 @@ function RegisterWithSearchParams() {
           </p>
         </div>
       </section>
-      
       {/* Add animations */}
       <style jsx global>{`
         @keyframes float-slow {
