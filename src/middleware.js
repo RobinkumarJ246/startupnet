@@ -62,8 +62,8 @@ export async function middleware(request) {
 
   // If it's a protected path and user is not logged in, redirect to login
   if (!isPublicPath && !token) {
-    console.log("No token on protected path, redirecting to /login");
-    return NextResponse.redirect(new URL('/login', request.url));
+    console.log("No token on protected path, redirecting to root -> /");
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   // For protected paths, verify token
@@ -85,8 +85,8 @@ export async function middleware(request) {
       });
     } else {
       console.log("Invalid token on protected path");
-      // Token is invalid, redirect to login
-      const response = NextResponse.redirect(new URL('/login', request.url));
+      // Token is invalid, redirect to root
+      const response = NextResponse.redirect(new URL('/', request.url));
       response.cookies.delete('token'); // Clear the invalid token
       return response;
     }
