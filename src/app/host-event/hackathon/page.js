@@ -13,6 +13,7 @@ import {
   ListChecks, Mail, Phone, Link, Info, Sparkle, Percent, Trophy, Send, IndianRupee, Settings,
   FileText, Layers, Workflow, Instagram, Youtube, Facebook, Linkedin, ExternalLink, FileUp, HelpCircle, X, MessageSquare
 } from 'lucide-react';
+import { FaWhatsapp,FaTelegram } from "react-icons/fa";
 import Navbar from '../../components/landing/Navbar';
 import EnhancedMarkdownEditor from '../../components/editor/EnhancedMarkdownEditor';
 import {
@@ -1633,7 +1634,7 @@ const HostEventPage = () => {
                               }
                             }
                           }))}
-                          icon={renderIcon(MessageSquare, "h-5 w-5", false)}
+                          icon={renderIcon(FaWhatsapp, "h-5 w-5", false)}
                           helpText="Link to your WhatsApp group for participants (optional)"
                         />
                         
@@ -1653,7 +1654,7 @@ const HostEventPage = () => {
                               }
                             }
                           }))}
-                          icon={renderIcon(MessageSquare, "h-5 w-5", false)}
+                          icon={renderIcon(FaTelegram, "h-5 w-5", false)}
                           helpText="Link to your Telegram group for participants (optional)"
                         />
                         
