@@ -37,7 +37,7 @@ export default function StayTuned() {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <Navbar />
+      <Navbar forceLight={true} />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
         <Link href="/" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-10 transition-colors font-medium">

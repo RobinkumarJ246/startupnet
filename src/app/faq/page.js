@@ -1,11 +1,12 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronUp, Search, User, CreditCard, HelpCircle, Briefcase, Users, BookOpen, Zap, MessageSquare, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, User, CreditCard, HelpCircle, Briefcase, Users, BookOpen, Zap, MessageSquare, ChevronRight, Calendar } from 'lucide-react';
 import Navbar from '../components/landing/Navbar';
 
 export default function FAQPage() {
   const [activeCategory, setActiveCategory] = useState('account');
+  const [activeSubcategory, setActiveSubcategory] = useState('general');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedQuestions, setExpandedQuestions] = useState({});
   
@@ -150,6 +151,81 @@ export default function FAQPage() {
           answer: 'Yes, StartupsNet supports integration with popular tools like GitHub, Trello, Slack, and Google Workspace. You can set up these integrations in your project settings to streamline your workflow.'
         }
       ]
+    },
+    {
+      id: 'events',
+      name: 'Events & Hosting',
+      icon: <Calendar className="h-5 w-5" />,
+      color: 'from-rose-500 to-pink-600',
+      subcategories: [
+        {
+          id: 'general',
+          name: 'General',
+          questions: [
+            {
+              id: 'events-general-1',
+              question: 'Who can host events on StartupsNet?',
+              answer: 'Currently, only startups and university clubs can host events on StartupsNet. Students can participate in events but cannot host them. This ensures quality and legitimacy of events on the platform.'
+            },
+            {
+              id: 'events-general-2',
+              question: 'What types of events can I host?',
+              answer: 'Currently, you can host hackathons on the platform. We are working on adding support for other event types like workshops, cultural events, and more. Stay tuned for updates!'
+            },
+            {
+              id: 'events-general-3',
+              question: 'How do I get started with hosting an event?',
+              answer: 'To host an event, navigate to the "Host Event" section and select the event type you want to create. Follow the step-by-step form to provide all necessary details about your event.'
+            }
+          ]
+        },
+        {
+          id: 'hackathons',
+          name: 'Hackathons',
+          questions: [
+            {
+              id: 'hackathon-1',
+              question: 'What information do I need to provide for a hackathon?',
+              answer: 'You\'ll need to provide: 1) Basic event details (title, description, mode, location), 2) Participant requirements (team size, eligibility), 3) Event phases (registration, shortlisting, main event, results), 4) Prizes and rewards, 5) Contact information, and 6) Additional publishing options (if any).'
+            },
+            {
+              id: 'hackathon-2',
+              question: 'How do I set up event phases for my hackathon?',
+              answer: 'You can configure four main phases: 1) Registration - Set start/end dates and team size limits, 2) Shortlisting - Define criteria and dates for participant selection, 3) Main Event - Set the hackathon duration and requirements, 4) Results - Configure announcement dates and prize distribution.'
+            },
+            {
+              id: 'hackathon-3',
+              question: 'What are the payment options for hackathons?',
+              answer: 'You can set up various payment options: 1) Free registration, 2) Paid registration with different tiers, 3) Early bird discounts, 4) Coupon codes, 5) Random discount system. You can also configure payment collection timing (before or after shortlisting).'
+            },
+            {
+              id: 'hackathon-4',
+              question: 'How can I collect submissions from participants?',
+              answer: 'You can enable document submissions and configure requirements like: 1) Problem statement documents (PDF/Word), 2) Project files, 3) Custom forms with various question types (text, number, choice, etc.). You can also set up external form links for submissions.'
+            },
+            {
+              id: 'hackathon-5',
+              question: 'What communication channels can I set up for participants?',
+              answer: 'You can provide multiple communication channels: 1) Primary contact email and phone, 2) Additional contact emails and phones, 3) Website URL, 4) WhatsApp group link, 5) Telegram group link, 6) Optional support space for host-registrant communication.'
+            },
+            {
+              id: 'hackathon-6',
+              question: 'How do I manage the shortlisting process?',
+              answer: 'You can configure shortlisting by: 1) Setting shortlisting dates, 2) Defining shortlisting criteria, 3) Choosing whether to collect payments before or after shortlisting, 4) Setting up a results announcement date for shortlisted participants.'
+            },
+            {
+              id: 'hackathon-7',
+              question: 'What are the prize pool options?',
+              answer: 'You can set up: 1) Total prize pool amount, 2) Multiple prize categories (1st, 2nd, 3rd place, etc.), 3) Special prizes (best innovation, best UI/UX, etc.), 4) Non-cash rewards like internships or mentorship opportunities.'
+            },
+            {
+              id: 'hackathon-8',
+              question: 'How can I promote my hackathon?',
+              answer: 'You can use multiple channels: 1) Platform\'s built-in promotion, 2) Your website, 3) Social media links (WhatsApp, Telegram), 4) External form links, 5) Problem statement attachments, 6) Custom registration forms to collect participant information.'
+            }
+          ]
+        }
+      ]
     }
   ];
   
@@ -163,21 +239,52 @@ export default function FAQPage() {
   
   // Filter questions based on search query
   const filteredCategories = faqCategories.map(category => {
-    const filteredQuestions = category.questions.filter(q => 
-      q.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      q.answer.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    
-    return {
-      ...category,
-      questions: filteredQuestions,
-      hasMatches: filteredQuestions.length > 0
-    };
+    if (category.subcategories) {
+      // Handle categories with subcategories
+      const filteredSubcategories = category.subcategories.map(subcategory => {
+        const filteredQuestions = subcategory.questions.filter(q => 
+          q.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          q.answer.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        
+        return {
+          ...subcategory,
+          questions: filteredQuestions,
+          hasMatches: filteredQuestions.length > 0
+        };
+      });
+      
+      return {
+        ...category,
+        subcategories: filteredSubcategories,
+        hasMatches: filteredSubcategories.some(sub => sub.hasMatches)
+      };
+    } else {
+      // Handle regular categories
+      const filteredQuestions = category.questions.filter(q => 
+        q.question.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        q.answer.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      
+      return {
+        ...category,
+        questions: filteredQuestions,
+        hasMatches: filteredQuestions.length > 0
+      };
+    }
   });
   
   // Count total questions that match search
   const totalMatchingQuestions = filteredCategories.reduce(
-    (total, category) => total + category.questions.length, 
+    (total, category) => {
+      if (category.subcategories) {
+        return total + category.subcategories.reduce(
+          (subTotal, sub) => subTotal + sub.questions.length, 
+          0
+        );
+      }
+      return total + category.questions.length;
+    }, 
     0
   );
 
@@ -252,6 +359,31 @@ export default function FAQPage() {
                           </span>
                         )}
                       </button>
+                      
+                      {/* Subcategories */}
+                      {category.subcategories && activeCategory === category.id && (
+                        <ul className="ml-8 mt-2 space-y-1">
+                          {category.subcategories.map((sub) => (
+                            <li key={sub.id}>
+                              <button
+                                className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${
+                                  activeSubcategory === sub.id
+                                    ? 'text-indigo-700 bg-indigo-50'
+                                    : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                                onClick={() => setActiveSubcategory(sub.id)}
+                              >
+                                <span>{sub.name}</span>
+                                {searchQuery && sub.hasMatches && (
+                                  <span className="ml-auto bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">
+                                    {sub.questions.length}
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -283,7 +415,51 @@ export default function FAQPage() {
                   key={category.id} 
                   className={activeCategory === category.id || searchQuery ? 'block' : 'hidden'}
                 >
-                  {(category.questions.length > 0) && (
+                  {category.subcategories ? (
+                    // Handle categories with subcategories
+                    category.subcategories.map((sub) => (
+                      <div 
+                        key={sub.id}
+                        className={activeSubcategory === sub.id || searchQuery ? 'block' : 'hidden'}
+                      >
+                        <h2 className="text-2xl font-bold mb-6 text-gray-900">{sub.name}</h2>
+                        <div className="space-y-4">
+                          {sub.questions.map((item) => (
+                            <div 
+                              key={item.id}
+                              className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300"
+                            >
+                              <button
+                                className="w-full text-left p-6 focus:outline-none"
+                                onClick={() => toggleQuestion(item.id)}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <h3 className="text-lg font-medium text-gray-900">{item.question}</h3>
+                                  <div className={`p-1 rounded-full transition-colors ${
+                                    expandedQuestions[item.id] 
+                                      ? 'bg-indigo-100 text-indigo-600' 
+                                      : 'bg-gray-100 text-gray-500'
+                                  }`}>
+                                    {expandedQuestions[item.id] ? (
+                                      <ChevronUp className="h-5 w-5" />
+                                    ) : (
+                                      <ChevronDown className="h-5 w-5" />
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {expandedQuestions[item.id] && (
+                                  <div className="mt-4 pt-4 border-t border-gray-100">
+                                    <p className="text-gray-600">{item.answer}</p>
+                                  </div>
+                                )}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
                     <>
                       {searchQuery && (
                         <h2 className="text-2xl font-bold mb-6 text-gray-900">{category.name}</h2>
