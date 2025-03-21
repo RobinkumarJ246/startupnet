@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowRight, Mailbox, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, AlertCircle, X } from 'lucide-react';
@@ -9,7 +9,8 @@ import ProjectsSection from './components/landing/ProjectsSection';
 import FeaturedStartups from './components/landing/FeaturedStartups';
 import HowItWorks from './components/landing/HowItWorks';
 
-export default function Home() {
+// Create a client component to handle search params
+function LoginAlert() {
   const searchParams = useSearchParams();
   const [showLoginAlert, setShowLoginAlert] = useState(false);
   
@@ -28,26 +29,34 @@ export default function Home() {
     }
   }, [searchParams]);
 
+  if (!showLoginAlert) return null;
+
+  return (
+    <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-indigo-100 border-l-4 border-indigo-600 text-indigo-800 p-4 rounded-lg shadow-lg flex items-center max-w-md w-full">
+      <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+      <div className="flex-grow text-sm">
+        Please log in to access this page. If you don't have an account, you can sign up for free.
+      </div>
+      <button 
+        onClick={() => setShowLoginAlert(false)}
+        className="ml-2 text-indigo-600 hover:text-indigo-800"
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
+export default function Home() {
   return (
     <main className="min-h-screen">
       {/* Navbar */}
       <Navbar />
       
-      {/* Login Alert */}
-      {showLoginAlert && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-indigo-100 border-l-4 border-indigo-600 text-indigo-800 p-4 rounded-lg shadow-lg flex items-center max-w-md w-full">
-          <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-          <div className="flex-grow text-sm">
-            Please log in to access this page. If you don't have an account, you can sign up for free.
-          </div>
-          <button 
-            onClick={() => setShowLoginAlert(false)}
-            className="ml-2 text-indigo-600 hover:text-indigo-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
+      {/* Login Alert - wrapped in Suspense */}
+      <Suspense fallback={null}>
+        <LoginAlert />
+      </Suspense>
       
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-indigo-900 via-blue-800 to-indigo-900 text-white overflow-hidden">
