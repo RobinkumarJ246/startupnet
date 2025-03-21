@@ -136,10 +136,27 @@ export default function LoginPage() {
       // Update UI to show loading state
       setLoading(true);
       
+      // Show a temporary loading message if it takes too long
+      const loadingMessageTimeout = setTimeout(() => {
+        setSuccessMessage('Connecting to server... Please wait');
+      }, 3000); // Show message after 3 seconds
+      
       const result = await login(email, password, userType);
       
+      // Clear loading message timeout
+      clearTimeout(loadingMessageTimeout);
+      
       if (!result.success) {
-        setError(result.error || 'Login failed. Please check your credentials.');
+        let errorMessage = result.error || 'Login failed. Please check your credentials.';
+        
+        // Add helpful suggestions based on error type
+        if (errorMessage.includes('timed out') || errorMessage.includes('connection')) {
+          errorMessage += ' This might be due to server load or network issues. Consider trying again in a few moments.';
+        } else if (errorMessage.includes('not found') || errorMessage.includes('account type')) {
+          errorMessage += ' Make sure you selected the correct account type (Student, Startup, or Club).';
+        }
+        
+        setError(errorMessage);
         setLoading(false);
         return;
       }
@@ -153,7 +170,22 @@ export default function LoginPage() {
       }, 800);
     } catch (err) {
       console.error('Login error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      
+      let errorMessage = 'An error occurred during login.';
+      
+      // More helpful error messages for different error types
+      if (err.message?.includes('Failed to fetch') || err.message?.includes('Network')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (err.message?.includes('timed out')) {
+        errorMessage = 'Request timed out. The server may be busy. Please try again in a few moments.';
+      } else if (err.message?.includes('server')) {
+        errorMessage = 'Server error. Our team has been notified and is working on the issue. Please try again later.';
+      } else if (err.message) {
+        // Use the specific error message if available
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };

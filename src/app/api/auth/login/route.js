@@ -53,30 +53,46 @@ function addMissingFields(userData) {
 
 export async function POST(request) {
   try {
+    // Add timeout handling with AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000); // 9 second timeout (just under Vercel's 10s limit)
+
     const body = await request.json();
     const { email, password, userType } = body;
     
     console.log(`Login attempt for ${email} as ${userType}`);
     
     if (!email || !password || !userType) {
+      clearTimeout(timeoutId);
       return NextResponse.json({ 
         success: false, 
         error: 'Email, password, and user type are required' 
       }, { status: 400 });
     }
     
-    // Connect to the MongoDB database
+    // Connect to the MongoDB database with timeout
     let db;
+    let connection;
     try {
-      const connection = await connectDB();
+      // Set up a promise race between connection and timeout
+      const connectionPromise = connectDB();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Database connection timeout')), 5000);
+      });
+      
+      connection = await Promise.race([connectionPromise, timeoutPromise]);
       db = connection.db;
       console.log('Database connection successful');
     } catch (dbError) {
       console.error('Database connection error:', dbError);
+      clearTimeout(timeoutId);
+      
+      // Return a more useful error for debugging
       return NextResponse.json({ 
         success: false, 
         error: 'Database connection failed',
-        message: dbError.message
+        message: dbError.message,
+        timeout: dbError.message.includes('timeout')
       }, { status: 500 });
     }
     
@@ -93,23 +109,28 @@ export async function POST(request) {
         collection = db.collection('clubs');
         break;
       default:
+        clearTimeout(timeoutId);
+        if (connection?.client) {
+          await connection.client.close().catch(err => console.error('Error closing connection:', err));
+        }
         return NextResponse.json({ 
           success: false, 
           error: 'Invalid user type' 
         }, { status: 400 });
     }
     
-    // Find user by email
+    // Find user by email with timeout
     let user;
     try {
-      // Add debug logging for club users
+      // Set a time limit on the MongoDB operation
+      const findOptions = { maxTimeMS: 3000 }; // 3 second timeout on the query itself
+      
       if (userType === 'club') {
         console.log('Looking up club user by email:', email);
       }
       
-      user = await collection.findOne({ email });
+      user = await collection.findOne({ email }, findOptions);
       
-      // For club users, log all fields to debug what data is coming from MongoDB
       if (userType === 'club' && user) {
         console.log('Club user found in database. Raw data:', {
           _id: user._id.toString(),
@@ -117,7 +138,6 @@ export async function POST(request) {
           name: user.name,
           clubName: user.clubName,
           fullName: user.fullName,
-          // Log all fields for debugging
           allFields: Object.keys(user)
         });
       }
@@ -125,14 +145,29 @@ export async function POST(request) {
       console.log(user ? 'User found' : 'User not found');
     } catch (findError) {
       console.error('Error finding user:', findError);
+      clearTimeout(timeoutId);
+      if (connection?.client) {
+        await connection.client.close().catch(err => console.error('Error closing connection:', err));
+      }
+      
+      // Check if this was a timeout error
+      const isTimeout = findError.message.includes('timed out') || 
+                        findError.name === 'MongoTimeoutError' ||
+                        findError.message.includes('operation exceeded time limit');
+      
       return NextResponse.json({ 
         success: false, 
         error: 'Error finding user',
-        message: findError.message
-      }, { status: 500 });
+        message: findError.message,
+        timeout: isTimeout
+      }, { status: isTimeout ? 504 : 500 });
     }
     
     if (!user) {
+      clearTimeout(timeoutId);
+      if (connection?.client) {
+        await connection.client.close().catch(err => console.error('Error closing connection:', err));
+      }
       return NextResponse.json({ 
         success: false, 
         error: 'User not found' 
@@ -170,6 +205,10 @@ export async function POST(request) {
     }
     
     if (!passwordMatch) {
+      clearTimeout(timeoutId);
+      if (connection?.client) {
+        await connection.client.close().catch(err => console.error('Error closing connection:', err));
+      }
       return NextResponse.json({ 
         success: false, 
         error: 'Invalid password' 
@@ -229,11 +268,26 @@ export async function POST(request) {
     // Set the auth cookie with proper settings for dev/prod environments
     setAuthCookie(response, token);
     
+    // Clear timeout and close DB connection
+    clearTimeout(timeoutId);
+    if (connection?.client) {
+      await connection.client.close().catch(err => console.error('Error closing connection:', err));
+    }
+    
     console.log('Login successful, returning response with auth cookie');
     return response;
   } catch (error) {
     console.error('Login error:', error);
     console.error('Error stack:', error.stack);
+    
+    // Check if this is an AbortController timeout
+    if (error.name === 'AbortError') {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Login request timed out', 
+        timeout: true
+      }, { status: 504 });
+    }
     
     // Log more details about the error
     if (error.name === 'MongoServerError') {
@@ -248,7 +302,7 @@ export async function POST(request) {
       success: false, 
       error: 'Server error', 
       message: error.message,
-      errorType: error.name
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, { status: 500 });
   }
 } 

@@ -126,104 +126,129 @@ export function AuthProvider({ children }) {
       setUser(null);
       
       console.log('Sending login request to API');
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies in the request
-        body: JSON.stringify({ email, password, userType }),
-      });
+      
+      // Set up an AbortController with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies in the request
+          body: JSON.stringify({ email, password, userType }),
+          signal: controller.signal // Add abort signal
+        });
 
-      console.log('Login response status:', response.status);
-      
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Login failed');
-      }
+        // Clear the timeout
+        clearTimeout(timeoutId);
+        
+        console.log('Login response status:', response.status);
+        
+        // Special handling for different status codes
+        if (response.status === 504) {
+          console.error('Login request timed out (504 Gateway Timeout)');
+          return { 
+            success: false, 
+            error: 'Login request timed out. The server might be busy or experiencing connection issues. Please try again in a few moments.'
+          };
+        }
+        
+        if (!response.ok) {
+          let errorMessage = 'Login failed';
+          
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorData.message || 'Login failed';
+            console.error('Login error details:', errorData);
+            
+            // Add more specific messages for common errors
+            if (response.status === 404) {
+              errorMessage = 'User not found. Please check your email and account type.';
+            } else if (response.status === 401) {
+              errorMessage = 'Invalid password. Please check your credentials.';
+            } else if (response.status === 500) {
+              errorMessage = 'Server error. Please try again later.';
+              
+              // Check for database connection errors
+              if (errorData.message && (
+                  errorData.message.includes('database') || 
+                  errorData.message.includes('MongoDB') ||
+                  errorData.message.includes('connection')
+              )) {
+                errorMessage = 'Database connection error. Please try again in a few moments.';
+              }
+              
+              // Check for timeout specific errors
+              if (errorData.timeout || (errorData.message && errorData.message.includes('timeout'))) {
+                errorMessage = 'Request timed out. Please try again later when the server is less busy.';
+              }
+            }
+          } catch (parseError) {
+            console.error('Error parsing error response:', parseError);
+          }
+          
+          throw new Error(errorMessage);
+        }
 
-      // Get user data from response
-      const data = await response.json();
-      
-      if (!data.user) {
-        console.warn('No user data received from login');
-        return { success: false, error: 'No user data received' };
-      }
-      
-      // IMPORTANT: Log complete received user data for debugging
-      console.log('LOGIN - RECEIVED USER DATA:', {
-        id: data.user._id,
-        type: data.user.type || data.user.userType,
-        name: data.user.name,
-        clubName: data.user.clubName,
-        fullName: data.user.fullName,
-        companyName: data.user.companyName
-      });
-      
-      // Store user data in localStorage
-      if (data.user && typeof window !== 'undefined') {
-        // Create a complete user object with all necessary fields
-        const userData = { ...data.user };
-        
-        // Ensure all type fields are set correctly
-        if (!userData.userType && userData.type) {
-          userData.userType = userData.type;
-        }
-        if (!userData.type && userData.userType) {
-          userData.type = userData.userType;
+        // Get user data from response
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error('Error parsing JSON response:', parseError);
+          throw new Error('Error processing server response. Please try again.');
         }
         
-        // CRITICAL: Fix missing type-specific fields for each user type
-        if (userData.type === 'club' && !userData.clubName) {
-          // For club users, ensure clubName exists 
-          if (userData.name && typeof userData.name === 'string') {
-            console.log('FIXING missing clubName by copying from name:', userData.name);
-            userData.clubName = userData.name;
-          } else {
-            console.warn('Club user missing both clubName and name fields!');
-          }
-        } else if (userData.type === 'student' && !userData.fullName) {
-          // For student users, ensure fullName exists
-          if (userData.name && typeof userData.name === 'string') {
-            console.log('FIXING missing fullName by copying from name:', userData.name);
-            userData.fullName = userData.name;
-          } else {
-            console.warn('Student user missing both fullName and name fields!');
-          }
-        } else if (userData.type === 'startup' && !userData.companyName) {
-          // For startup users, ensure companyName exists
-          if (userData.name && typeof userData.name === 'string') {
-            console.log('FIXING missing companyName by copying from name:', userData.name);
-            userData.companyName = userData.name;
-          } else {
-            console.warn('Startup user missing both companyName and name fields!');
-          }
+        if (!data.user) {
+          console.warn('No user data received from login');
+          return { success: false, error: 'No user data received' };
         }
         
-        // Log the processed user data that will be stored
-        console.log('LOGIN - STORING USER DATA:', {
-          id: userData._id,
-          type: userData.type,
-          name: userData.name,
-          clubName: userData.clubName,
-          fullName: userData.fullName,
-          companyName: userData.companyName
+        // IMPORTANT: Log complete received user data for debugging
+        console.log('LOGIN - RECEIVED USER DATA:', {
+          id: data.user._id,
+          type: data.user.type || data.user.userType,
+          name: data.user.name,
+          clubName: data.user.clubName,
+          fullName: data.user.fullName,
+          companyName: data.user.companyName
         });
         
-        // Store the complete user object
-        localStorage.setItem('user', JSON.stringify(userData));
+        // Store user data in localStorage for later retrieval
+        console.log('Login successful, storing user data');
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Update user state
+        setUser(data.user);
+
+        // Return success
+        return { success: true, user: data.user };
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
         
-        // Also store key pieces separately for redundancy
-        localStorage.setItem('userType', userData.type || userData.userType);
-        localStorage.setItem('userId', userData._id);
+        // Handle AbortController timeout
+        if (fetchError.name === 'AbortError') {
+          console.error('Login request aborted due to timeout');
+          return { 
+            success: false, 
+            error: 'Login request timed out. The server might be busy or your internet connection may be unstable. Please try again.'
+          };
+        }
         
-        // Update the context state
-        setUser(userData);
+        // Handle network errors
+        if (fetchError.message === 'Failed to fetch' || fetchError.message.includes('NetworkError')) {
+          console.error('Network error during login:', fetchError);
+          return { 
+            success: false, 
+            error: 'Network error. Please check your internet connection and try again.'
+          };
+        }
         
-        return { success: true };
-      } else {
-        console.warn('No user data received from login');
-        return { success: false, error: 'No user data received' };
+        // Rethrow other errors
+        throw fetchError;
       }
     } catch (error) {
       console.error('Login error:', error);
