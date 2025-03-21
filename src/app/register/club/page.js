@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -19,6 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import Navbar from '@/app/components/landing/Navbar';
+import ImageCropper from '@/app/components/shared/ImageCropper';
 
 export default function ClubRegistration() {
   const router = useRouter();
@@ -48,8 +49,15 @@ export default function ClubRegistration() {
       website: '',
       instagram: '',
       linkedin: '',
-    }
+    },
+    university: '',
+    college: '',
+    otherUniversity: '',
   });
+
+  // Add new state for image cropper
+  const [showCropper, setShowCropper] = useState(false);
+  const [tempImageFile, setTempImageFile] = useState(null);
 
   // Predefined options
   const activityOptions = [
@@ -62,6 +70,15 @@ export default function ClubRegistration() {
     { id: 'university', label: 'University/College Club' },
     { id: 'independent', label: 'Independent Club' }
   ];
+
+  // Redirect if already logged in
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      console.log('User already logged in, redirecting to explore page');
+      router.push('/explore');
+    }
+  }, [router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -95,10 +112,38 @@ export default function ClubRegistration() {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData(prevState => ({
-        ...prevState,
-        logo: e.target.files[0]
-      }));
+      const file = e.target.files[0];
+      
+      // Check file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setFormErrors(prev => ({
+          ...prev,
+          logo: "Image must be less than 5MB"
+        }));
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        setFormErrors(prev => ({
+          ...prev,
+          logo: "File must be an image"
+        }));
+        return;
+      }
+      
+      // Store temporary file and show cropper
+      setTempImageFile(file);
+      setShowCropper(true);
+      
+      // Clear any previous errors
+      if (formErrors.logo) {
+        setFormErrors(prev => {
+          const newErrors = {...prev};
+          delete newErrors.logo;
+          return newErrors;
+        });
+      }
     }
   };
 
@@ -135,10 +180,21 @@ export default function ClubRegistration() {
     
     if (stepNumber === 2) {
       if (!formData.clubName) errors.clubName = "Club name is required";
-      if (formData.clubType === 'university' && !formData.parentOrganization) {
-        errors.parentOrganization = "Parent organization is required for university clubs";
+      
+      // Validate university selection for university clubs
+      if (formData.clubType === 'university') {
+        if (!formData.university) {
+          errors.university = "University is required for university clubs";
+        } else if (formData.university === 'Other' && !formData.otherUniversity) {
+          errors.otherUniversity = "Please specify your university";
+        }
       }
-      if (!formData.memberCount) errors.memberCount = "Member count is required";
+      
+      // Member count is optional but must be a positive number if provided
+      if (formData.memberCount && (isNaN(parseInt(formData.memberCount)) || parseInt(formData.memberCount) < 0)) {
+        errors.memberCount = "Member count must be a positive number";
+      }
+      
       if (!formData.location) errors.location = "Location is required";
     }
     
@@ -183,6 +239,24 @@ export default function ClubRegistration() {
       if (formDataForAPI.logo) {
         delete formDataForAPI.logo;
       }
+
+      // Handle university/college data for backward compatibility
+      if (formDataForAPI.clubType === 'university') {
+        // Set parentOrganization field for backward compatibility
+        if (formDataForAPI.university) {
+          if (formDataForAPI.university === 'Other' && formDataForAPI.otherUniversity) {
+            formDataForAPI.parentOrganization = formDataForAPI.otherUniversity;
+          } else {
+            formDataForAPI.parentOrganization = formDataForAPI.university;
+          }
+          
+          // If there's also a college, append it to parentOrganization
+          if (formDataForAPI.college) {
+            formDataForAPI.parentOrganization += ` - ${formDataForAPI.college}`;
+          }
+        }
+      }
+      
       const response = await fetch('/api/register/club', {
         method: 'POST',
         headers: {
@@ -228,13 +302,23 @@ export default function ClubRegistration() {
           imageFormData.append('userType', 'club');
           imageFormData.append('file', formData.logo);
           
+          console.log('Uploading profile image for club:', {
+            userId: data.id,
+            userType: 'club',
+            fileSize: formData.logo.size,
+            fileName: formData.logo.name,
+            fileType: formData.logo.type
+          });
+          
           const imageResponse = await fetch('/api/profile/image/upload', {
             method: 'POST',
             body: imageFormData,
+            credentials: 'include', // Include cookies for auth
           });
           
           if (!imageResponse.ok) {
-            console.error('Failed to upload profile image, but club was registered');
+            const errorData = await imageResponse.json();
+            console.error('Failed to upload profile image:', errorData);
           } else {
             console.log('Profile image uploaded successfully');
           }
@@ -242,6 +326,11 @@ export default function ClubRegistration() {
           console.error('Error uploading profile image:', imageError);
           // We don't want to block registration if only the image upload fails
         }
+      } else {
+        console.log('No profile image to upload or missing user ID:', { 
+          hasImage: !!formData.logo, 
+          userId: data.id 
+        });
       }
       
       // Navigate directly to profile page instead of success page
@@ -435,37 +524,99 @@ export default function ClubRegistration() {
         </div>
         
         {formData.clubType === 'university' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="parentOrganization">
-              University/College Name
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Building size={18} className="text-gray-500" />
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="university">
+                University
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Building size={18} className="text-gray-500" />
+                </div>
+                <select
+                  id="university"
+                  name="university"
+                  className={`py-3 px-4 pl-10 block w-full border ${formErrors.university ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500`}
+                  value={formData.university}
+                  onChange={handleChange}
+                >
+                  <option value="">Select your university</option>
+                  <option value="Anna University, Chennai">Anna University, Chennai</option>
+                  <option value="MIT">Massachusetts Institute of Technology</option>
+                  <option value="Stanford">Stanford University</option>
+                  <option value="Harvard">Harvard University</option>
+                  <option value="Caltech">California Institute of Technology</option>
+                  <option value="VIT">Vellore Institute of Technology</option>
+                  <option value="IIT Delhi">Indian Institute of Technology Delhi</option>
+                  <option value="IIT Bombay">Indian Institute of Technology Bombay</option>
+                  <option value="BITS Pilani">Birla Institute of Technology and Science, Pilani</option>
+                  <option value="NIT Trichy">National Institute of Technology Tiruchirappalli</option>
+                  <option value="Other">Other (specify below)</option>
+                </select>
               </div>
-              <input 
-                type="text" 
-                id="parentOrganization" 
-                name="parentOrganization" 
-                className={`py-3 px-4 pl-10 block w-full border ${formErrors.parentOrganization ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500`}
-                placeholder="Stanford University" 
-                value={formData.parentOrganization}
-                onChange={handleChange}
-              />
+              {formErrors.university && (
+                <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <AlertCircle size={14} className="mr-1" />
+                  {formErrors.university}
+                </p>
+              )}
             </div>
-            {formErrors.parentOrganization && (
-              <p className="mt-1 text-sm text-red-600 flex items-center">
-                <AlertCircle size={14} className="mr-1" />
-                {formErrors.parentOrganization}
-              </p>
+
+            {formData.university === "Other" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="otherUniversity">
+                  Specify University
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <Building size={18} className="text-gray-500" />
+                  </div>
+                  <input 
+                    type="text" 
+                    id="otherUniversity" 
+                    name="otherUniversity" 
+                    className={`py-3 px-4 pl-10 block w-full border ${formErrors.otherUniversity ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500`}
+                    placeholder="Enter your university name" 
+                    value={formData.otherUniversity}
+                    onChange={handleChange}
+                  />
+                </div>
+                {formErrors.otherUniversity && (
+                  <p className="mt-1 text-sm text-red-600 flex items-center">
+                    <AlertCircle size={14} className="mr-1" />
+                    {formErrors.otherUniversity}
+                  </p>
+                )}
+              </div>
             )}
-          </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="college">
+                College (if different from university)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Building size={18} className="text-gray-500" />
+                </div>
+                <input 
+                  type="text" 
+                  id="college" 
+                  name="college" 
+                  className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="School of Engineering" 
+                  value={formData.college}
+                  onChange={handleChange}
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave blank if your club is directly affiliated with the university</p>
+              </div>
+            </div>
+          </>
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="memberCount">
-              Approximate Member Count
+              Approximate Member Count (optional)
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -475,11 +626,22 @@ export default function ClubRegistration() {
                 type="number" 
                 id="memberCount" 
                 name="memberCount" 
+                min="0"
                 className={`py-3 px-4 pl-10 block w-full border ${formErrors.memberCount ? 'border-red-500' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500`}
                 placeholder="50" 
                 value={formData.memberCount}
-                onChange={handleChange}
+                onChange={(e) => {
+                  // Prevent negative values
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value) && value >= 0) {
+                    handleChange(e);
+                  } else if (e.target.value === '') {
+                    // Allow empty value (optional)
+                    handleChange(e);
+                  }
+                }}
               />
+              <p className="text-xs text-gray-500 mt-1">Enter the approximate number of active members</p>
             </div>
             {formErrors.memberCount && (
               <p className="mt-1 text-sm text-red-600 flex items-center">
@@ -742,86 +904,115 @@ export default function ClubRegistration() {
     }
   };
 
+  // Add handlers for the crop operation
+  const handleCropComplete = (croppedImageFile) => {
+    setFormData(prev => ({
+      ...prev,
+      logo: croppedImageFile
+    }));
+    
+    // Close cropper
+    setShowCropper(false);
+  };
+
+  const handleCropCancel = () => {
+    setTempImageFile(null);
+    setShowCropper(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-      <Navbar forceLight={true} />
-      
-      <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <Link href="/register" className="inline-flex items-center text-purple-600 hover:text-purple-800">
-              <ChevronLeft size={16} /> Back to account types
-            </Link>
-            <h1 className="mt-4 text-3xl font-extrabold text-gray-900">
-              Club Registration
-            </h1>
-            <p className="mt-2 text-lg text-gray-600">
-              Join our network and connect with students and startups
-            </p>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-8">
-              {renderProgressBar()}
-              
-              <div>
-                {renderStepContent()}
+    <>
+      <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+        <Navbar forceLight={true} />
+        
+        <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <Link href="/register" className="inline-flex items-center text-purple-600 hover:text-purple-800">
+                <ChevronLeft size={16} /> Back to account types
+              </Link>
+              <h1 className="mt-4 text-3xl font-extrabold text-gray-900">
+                Club Registration
+              </h1>
+              <p className="mt-2 text-lg text-gray-600">
+                Join our network and connect with students and startups
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="p-8">
+                {renderProgressBar()}
                 
-                <div className="flex justify-between mt-8">
-                  {step > 1 ? (
-                    <button
-                      type="button"
-                      onClick={handlePrevious}
-                      className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 flex items-center"
-                    >
-                      <ChevronLeft size={16} className="mr-1" /> Previous
-                    </button>
-                  ) : (
-                    <div></div>
-                  )}
+                <div>
+                  {renderStepContent()}
                   
-                  {step < 3 ? (
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-                    >
-                      Continue
-                    </button>
-                  ) : (
-                    <form onSubmit={handleSubmit}>
+                  <div className="flex justify-between mt-8">
+                    {step > 1 ? (
                       <button
-                        type="submit"
-                        disabled={loading}
-                        className={`py-2 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 flex items-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        type="button"
+                        onClick={handlePrevious}
+                        className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 flex items-center"
                       >
-                        {loading ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </>
-                        ) : 'Complete Registration'}
+                        <ChevronLeft size={16} className="mr-1" /> Previous
                       </button>
-                    </form>
-                  )}
+                    ) : (
+                      <div></div>
+                    )}
+                    
+                    {step < 3 ? (
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                      >
+                        Continue
+                      </button>
+                    ) : (
+                      <form onSubmit={handleSubmit}>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className={`py-2 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 flex items-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        >
+                          {loading ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processing...
+                            </>
+                          ) : 'Complete Registration'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </div>
+                
+                {step === 1 && (
+                  <p className="mt-6 text-center text-sm text-gray-600">
+                    Already have an account?{' '}
+                    <Link href="/login" className="font-medium text-purple-600 hover:text-purple-500">
+                      Sign in
+                    </Link>
+                  </p>
+                )}
               </div>
-              
-              {step === 1 && (
-                <p className="mt-6 text-center text-sm text-gray-600">
-                  Already have an account?{' '}
-                  <Link href="/login" className="font-medium text-purple-600 hover:text-purple-500">
-                    Sign in
-                  </Link>
-                </p>
-              )}
             </div>
           </div>
         </div>
       </div>
-    </div>
+      
+      {/* Image Cropper */}
+      {showCropper && tempImageFile && (
+        <ImageCropper
+          imageFile={tempImageFile}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+          aspectRatio={1}
+          circularCrop={true}
+        />
+      )}
+    </>
   );
 } 

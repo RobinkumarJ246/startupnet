@@ -56,14 +56,51 @@ export default function ExplorePage() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   useEffect(() => {
-    // Get user data from localStorage
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    } else {
-      router.push('/login');
-    }
-    setLoading(false);
+    const loadUserData = async () => {
+      setLoading(true);
+      try {
+        // Get user data from localStorage first for immediate display
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+          
+          // Try to validate the session in the background, but don't redirect
+          // if it fails as we already have localStorage data
+          try {
+            console.log("Validating session in explore page...");
+            const response = await fetch('/api/auth/validate', {
+              method: 'GET',
+              credentials: 'include',
+            });
+            
+            console.log("Validation status:", response.status);
+            
+            // We only update the user if the validation was successful
+            if (response.ok) {
+              const data = await response.json();
+              if (data.user) {
+                // Update localStorage with fresh data
+                localStorage.setItem('user', JSON.stringify(data.user));
+                setUser(data.user);
+              }
+            }
+          } catch (error) {
+            console.error("Session validation error:", error);
+            // Continue with localStorage data
+          }
+        } else {
+          // No user data in localStorage, redirect to login
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
   }, [router]);
 
   if (loading) {
@@ -123,6 +160,21 @@ export default function ExplorePage() {
                   </Link>
                 </div>
               </div>
+              <div className="flex gap-4 p-4 bg-amber-50 rounded-lg">
+                <Calendar className="w-10 h-10 text-amber-600" />
+                <div className="flex-1">
+                  <h3 className="font-medium text-gray-900">Attend upcoming events</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Find workshops, networking opportunities and other events
+                  </p>
+                  <Link 
+                    href="/events"
+                    className="inline-flex items-center text-amber-600 font-medium text-sm mt-2"
+                  >
+                    Browse events <ChevronRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -133,6 +185,21 @@ export default function ExplorePage() {
               Recommended for {user.companyName}
             </h2>
             <div className="space-y-4">
+              <div className="flex gap-4 p-4 bg-amber-50 rounded-lg">
+                <Calendar className="w-10 h-10 text-amber-600" />
+                <div className="flex-1">
+                  <h3 className="font-medium text-gray-900">Host an event or workshop</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Connect with students and potential collaborators by hosting events
+                  </p>
+                  <Link 
+                    href="/events/create"
+                    className="inline-flex items-center text-amber-600 font-medium text-sm mt-2"
+                  >
+                    Create event <ChevronRight className="w-4 h-4 ml-1" />
+                  </Link>
+                </div>
+              </div>
               <div className="flex gap-4 p-4 bg-indigo-50 rounded-lg">
                 <GraduationCap className="w-10 h-10 text-indigo-600" />
                 <div className="flex-1">
@@ -209,6 +276,83 @@ export default function ExplorePage() {
       default:
         return null;
     }
+  };
+
+  const renderRightSidebar = () => {
+    return (
+      <div className="hidden lg:block">
+        <div className="sticky top-24 space-y-6">
+          {/* Upcoming Events */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+              <span>Upcoming Events</span>
+              <Link href="/events" className="text-xs text-indigo-600 font-medium">
+                See all
+              </Link>
+            </h2>
+            
+            {/* Event hosting option for startups and clubs */}
+            {(user.type === 'startup' || user.type === 'club') && (
+              <div className="mb-4">
+                <Link 
+                  href="/host-event"
+                  className="block w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg text-center transition-colors"
+                >
+                  <PlusCircle className="inline-block w-4 h-4 mr-2" />
+                  Host an Event
+                </Link>
+                <p className="mt-2 text-xs text-gray-500 text-center">
+                  Connect with your community by hosting events
+                </p>
+              </div>
+            )}
+            
+            <div className="text-center py-4">
+              <div className="w-16 h-16 mx-auto bg-indigo-100 rounded-full flex items-center justify-center">
+                <Calendar className="w-8 h-8 text-indigo-600" />
+              </div>
+              <h3 className="mt-4 text-sm font-medium text-gray-900">
+                {user.type === 'student' 
+                  ? 'Discover Events Near You' 
+                  : 'Manage Your Events'}
+              </h3>
+              <p className="mt-2 text-xs text-gray-600">
+                {user.type === 'student'
+                  ? 'Find workshops, networking events, and more.'
+                  : 'Create, promote and track your events all in one place.'}
+              </p>
+              {user.type === 'student' && (
+                <Link
+                  href="/events"
+                  className="mt-3 inline-block text-indigo-600 text-sm font-medium"
+                >
+                  Browse events <ChevronRight className="inline-block w-4 h-4" />
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Suggested Connections */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+              <span>People to Connect With</span>
+              <Link href="/connections" className="text-xs text-indigo-600 font-medium">
+                See all
+              </Link>
+            </h2>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto bg-indigo-100 rounded-full flex items-center justify-center">
+                <Users className="w-8 h-8 text-indigo-600" />
+              </div>
+              <h3 className="mt-4 text-sm font-medium text-gray-900">Suggestions Coming Soon</h3>
+              <p className="mt-2 text-xs text-gray-600">
+                We're building a network of students, startups, and clubs for you to connect with.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -399,45 +543,8 @@ export default function ExplorePage() {
               </div>
             </div>
 
-            {/* Right Sidebar */}
-            <div className="hidden lg:block">
-              <div className="sticky top-24 space-y-6">
-                {/* Upcoming Events */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    Upcoming Events
-                  </h2>
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 mx-auto bg-indigo-100 rounded-full flex items-center justify-center">
-                      <Calendar className="w-8 h-8 text-indigo-600" />
-                    </div>
-                    <h3 className="mt-4 text-sm font-medium text-gray-900">Events Coming Soon</h3>
-                    <p className="mt-2 text-xs text-gray-600">
-                      Stay tuned for upcoming networking events, workshops, and more.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Suggested Connections */}
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
-                    <span>People to Connect With</span>
-                    <Link href="/connections" className="text-xs text-indigo-600 font-medium">
-                      See all
-                    </Link>
-                  </h2>
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 mx-auto bg-indigo-100 rounded-full flex items-center justify-center">
-                      <Users className="w-8 h-8 text-indigo-600" />
-                    </div>
-                    <h3 className="mt-4 text-sm font-medium text-gray-900">Suggestions Coming Soon</h3>
-                    <p className="mt-2 text-xs text-gray-600">
-                      We're building a network of students, startups, and clubs for you to connect with.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Right Sidebar - Replace with adaptive content */}
+            {renderRightSidebar()}
           </div>
         </div>
       </div>

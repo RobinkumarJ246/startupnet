@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '../../../../../lib/mongodb';
+import clientPromise, { connectDB } from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -19,68 +19,52 @@ export async function POST(request) {
 
     console.log("Login attempt:", { email, userType });
 
-    const client = await clientPromise;
+    // Get the database - this will consistently use the 'users' database
+    const db = await connectDB();
     
-    // IMPORTANT: Check what database we're actually connected to
-    const dbList = await client.db().admin().listDatabases();
-    console.log("Available databases:", dbList.databases.map(db => db.name));
-    
-    // Try both database names to handle potential mismatch
-    let db;
+    // Find the user based on the provided userType or search in all collections
     let user = null;
     let foundUserType = null;
     
-    // List of potential database names to try
-    const dbNames = ['users', 'just-ants'];
-    
-    for (const dbName of dbNames) {
-      db = client.db(dbName);
-      console.log(`Trying database: ${dbName}`);
-      
+    if (userType) {
       // If userType is provided, only search that collection
-      if (userType) {
-        const collection = userType === 'student' ? 'students' : 
-                           userType === 'startup' ? 'startups' : 
-                           userType === 'club' ? 'clubs' : null;
-        
-        console.log(`Searching in collection: ${dbName}.${collection}`);
-        
-        if (collection) {
-          user = await db.collection(collection).findOne({ email });
-          if (user) {
-            foundUserType = userType;
-            console.log(`User found in ${dbName}.${collection}`);
-            break;
-          }
+      const collection = userType === 'student' ? 'students' : 
+                         userType === 'startup' ? 'startups' : 
+                         userType === 'club' ? 'clubs' : null;
+      
+      console.log(`Searching in collection: ${collection}`);
+      
+      if (collection) {
+        user = await db.collection(collection).findOne({ email });
+        if (user) {
+          foundUserType = userType;
+          console.log(`User found in ${collection}`);
         }
-      } else {
-        // Check all collections for the user if userType not provided
-        try {
-          const [student, startup, club] = await Promise.all([
-            db.collection('students').findOne({ email }),
-            db.collection('startups').findOne({ email }),
-            db.collection('clubs').findOne({ email })
-          ]);
+      }
+    } else {
+      // Check all collections for the user if userType not provided
+      try {
+        const [student, startup, club] = await Promise.all([
+          db.collection('students').findOne({ email }),
+          db.collection('startups').findOne({ email }),
+          db.collection('clubs').findOne({ email })
+        ]);
 
-          if (student) {
-            user = student;
-            foundUserType = 'student';
-            console.log(`User found in ${dbName}.students`);
-            break;
-          } else if (startup) {
-            user = startup;
-            foundUserType = 'startup';
-            console.log(`User found in ${dbName}.startups`);
-            break;
-          } else if (club) {
-            user = club;
-            foundUserType = 'club';
-            console.log(`User found in ${dbName}.clubs`);
-            break;
-          }
-        } catch (err) {
-          console.log(`Error searching collections in ${dbName}:`, err.message);
+        if (student) {
+          user = student;
+          foundUserType = 'student';
+          console.log(`User found in students`);
+        } else if (startup) {
+          user = startup;
+          foundUserType = 'startup';
+          console.log(`User found in startups`);
+        } else if (club) {
+          user = club;
+          foundUserType = 'club';
+          console.log(`User found in clubs`);
         }
+      } catch (err) {
+        console.log(`Error searching collections:`, err.message);
       }
     }
 
@@ -93,16 +77,6 @@ export async function POST(request) {
     }
 
     console.log("User found:", { type: foundUserType, id: user._id });
-    console.log("Stored hashed password:", user.password);
-    console.log("Password length:", user.password?.length);
-
-    // Create a test user with known password hash
-    const testPassword = "password123";
-    const testSalt = await bcrypt.genSalt(10);
-    const testHash = await bcrypt.hash(testPassword, testSalt);
-    console.log("Test password:", testPassword);
-    console.log("Test hash:", testHash);
-    console.log("Test hash length:", testHash.length);
     
     // Check if password field exists and is valid
     if (!user.password) {

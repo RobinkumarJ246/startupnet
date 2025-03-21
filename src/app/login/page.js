@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   User, 
@@ -16,6 +16,7 @@ import {
   Beaker
 } from "lucide-react";
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../lib/auth/AuthContext';
 
 // Import Navbar component
 import Navbar from "../components/landing/Navbar";
@@ -25,6 +26,7 @@ const isDev = process.env.NODE_ENV === 'development';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -34,6 +36,15 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showDevOptions, setShowDevOptions] = useState(false);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      console.log('User already logged in, redirecting to explore page');
+      router.push('/explore');
+    }
+  }, [router]);
 
   // Handle email input changes
   const handleEmailChange = (e) => {
@@ -122,36 +133,15 @@ export default function LoginPage() {
     }
     
     try {
-      console.log("Submitting login with:", { email, userType });
+      // Update UI to show loading state
+      setLoading(true);
       
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          userType
-        }),
-      });
+      const result = await login(email, password, userType);
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        // Display a more user-friendly error message
-        const errorMessage = data.error || 'Login failed. Please check your credentials.';
-        setError(errorMessage);
+      if (!result.success) {
+        setError(result.error || 'Login failed. Please check your credentials.');
         setLoading(false);
         return;
-      }
-      
-      // Store user data in localStorage for UI purposes only
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify({
-          ...data.user,
-          type: userType
-        }));
       }
       
       // Show success message before redirecting
@@ -160,11 +150,10 @@ export default function LoginPage() {
       // Redirect after a short delay
       setTimeout(() => {
         router.push('/explore');
-      }, 1000);
+      }, 800);
     } catch (err) {
       console.error('Login error:', err);
       setError('An unexpected error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -241,16 +230,20 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="mb-6 p-4 bg-red-50 rounded-lg flex items-center text-red-700">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                {error}
+              <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200 flex items-center text-red-700 animate-fadeIn">
+                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                <span className="text-sm">{error}</span>
               </div>
             )}
 
             {successMessage && (
-              <div className="mb-6 p-4 bg-green-50 rounded-lg flex items-center text-green-700">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                {successMessage}
+              <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200 flex items-center text-green-700 animate-fadeIn">
+                <div className="rounded-full bg-green-100 p-1 mr-2">
+                  <svg className="h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-sm">{successMessage}</span>
               </div>
             )}
 
@@ -354,7 +347,7 @@ export default function LoginPage() {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300"
+                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>

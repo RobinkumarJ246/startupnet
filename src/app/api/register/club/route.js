@@ -1,4 +1,4 @@
-import clientPromise from '../../../../../lib/mongodb';
+import { connectDB } from '@/lib/mongodb';
 import { isEmail } from 'validator';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
@@ -14,12 +14,25 @@ const validateFormData = (data) => {
   else if (data.password.length < 8) errors.password = "Password must be at least 8 characters";
 
   if (!data.clubName) errors.clubName = "Club name is required";
-  if (data.clubType === 'university' && !data.parentOrganization) errors.parentOrganization = "Parent organization is required for university clubs";
-  if (!data.memberCount) errors.memberCount = "Member count is required";
+  
+  // Validate university/college for university clubs
+  if (data.clubType === 'university') {
+    if (!data.university) {
+      errors.university = "University is required for university clubs";
+    } else if (data.university === 'Other' && !data.otherUniversity) {
+      errors.otherUniversity = "Please specify your university";
+    }
+  }
+  
+  // Member count is optional but must be a positive number if provided
+  if (data.memberCount && (isNaN(data.memberCount) || parseInt(data.memberCount) < 0)) {
+    errors.memberCount = "Member count must be a positive number";
+  }
+  
   if (!data.location) errors.location = "Location is required";
   if (!data.clubDescription) errors.clubDescription = "Club description is required";
   if (!data.fullName) errors.fullName = "Contact person name is required";
-  if (data.mainActivities.length === 0) errors.mainActivities = "Please select at least one activity";
+  if (data.mainActivities && data.mainActivities.length === 0) errors.mainActivities = "Please select at least one activity";
 
   console.log('Validation errors:', Object.keys(errors).length > 0 ? errors : 'None');
   return errors;
@@ -51,11 +64,8 @@ export async function POST(request) {
     
     // Connect to MongoDB
     console.log('Connecting to MongoDB...');
-    const client = await clientPromise;
+    const db = await connectDB();
     console.log('MongoDB connection established');
-    
-    const db = client.db("users");
-    console.log('Accessing "users" database');
     
     // Check if email already exists
     console.log('Checking if email exists:', data.email);

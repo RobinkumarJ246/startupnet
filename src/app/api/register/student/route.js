@@ -1,4 +1,4 @@
-import clientPromise from '../../../../../lib/mongodb';
+import { connectDB } from '@/lib/mongodb';
 import { isEmail } from 'validator';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
@@ -40,8 +40,7 @@ export async function POST(request) {
     const hashedPassword = await bcrypt.hash(data.password, salt);
     
     // Connect to MongoDB
-    const client = await clientPromise;
-    const db = client.db("users");
+    const db = await connectDB();
     
     // Check if email already exists
     const existingUser = await db.collection("students").findOne({ email: data.email });

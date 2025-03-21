@@ -25,6 +25,7 @@ import {
   Phone
 } from 'lucide-react';
 import Navbar from '@/app/components/landing/Navbar';
+import ImageCropper from '@/app/components/shared/ImageCropper';
 
 export default function StartupRegistration() {
   const router = useRouter();
@@ -34,6 +35,8 @@ export default function StartupRegistration() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showCustomIndustry, setShowCustomIndustry] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [tempImageFile, setTempImageFile] = useState(null);
   const [formData, setFormData] = useState({
     // Account details
     email: '',
@@ -90,6 +93,15 @@ export default function StartupRegistration() {
     "Operations", "Customer Support", "Finance", "HR", "Legal"
   ];
 
+  // Redirect if already logged in
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      console.log('User already logged in, redirecting to explore page');
+      router.push('/explore');
+    }
+  }, [router]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     
@@ -128,11 +140,54 @@ export default function StartupRegistration() {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFormData(prevState => ({
-        ...prevState,
-        logo: e.target.files[0]
-      }));
+      const file = e.target.files[0];
+      
+      // Check file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setFormErrors(prev => ({
+          ...prev,
+          logo: "Image must be less than 5MB"
+        }));
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        setFormErrors(prev => ({
+          ...prev,
+          logo: "File must be an image"
+        }));
+        return;
+      }
+      
+      // Store temporary file and show cropper
+      setTempImageFile(file);
+      setShowCropper(true);
+      
+      // Clear any previous errors
+      if (formErrors.logo) {
+        setFormErrors(prev => {
+          const newErrors = {...prev};
+          delete newErrors.logo;
+          return newErrors;
+        });
+      }
     }
+  };
+
+  const handleCropComplete = (croppedImageFile) => {
+    setFormData(prev => ({
+      ...prev,
+      logo: croppedImageFile
+    }));
+    
+    // Close cropper
+    setShowCropper(false);
+  };
+
+  const handleCropCancel = () => {
+    setTempImageFile(null);
+    setShowCropper(false);
   };
   
   const handleToggleHiringRole = (role) => {
@@ -261,6 +316,7 @@ export default function StartupRegistration() {
           const logoResponse = await fetch('/api/profile/image/upload', {
             method: 'POST',
             body: logoFormData,
+            credentials: 'include',
           });
           
           if (!logoResponse.ok) {
@@ -898,85 +954,98 @@ export default function StartupRegistration() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-      <Navbar forceLight={true} />
-      
-      <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <Link href="/register" className="inline-flex items-center text-emerald-600 hover:text-emerald-800">
-              <ChevronLeft size={16} /> Back to account types
-            </Link>
-            <h1 className="mt-4 text-3xl font-extrabold text-gray-900">
-              Startup Registration
-            </h1>
-            <p className="mt-2 text-lg text-gray-600">
-              Join our network and connect with student talent
-            </p>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-8">
-              {renderProgressBar()}
-              
-              <div>
-                {renderStepContent()}
+    <>
+      <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+        <Navbar forceLight={true} />
+        
+        <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <Link href="/register" className="inline-flex items-center text-emerald-600 hover:text-emerald-800">
+                <ChevronLeft size={16} /> Back to account types
+              </Link>
+              <h1 className="mt-4 text-3xl font-extrabold text-gray-900">
+                Startup Registration
+              </h1>
+              <p className="mt-2 text-lg text-gray-600">
+                Join our network and connect with student talent
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="p-8">
+                {renderProgressBar()}
                 
-                <div className="flex justify-between mt-8">
-                  {step > 1 ? (
-                    <button
-                      type="button"
-                      onClick={handlePrevious}
-                      className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 flex items-center"
-                    >
-                      <ChevronLeft size={16} className="mr-1" /> Previous
-                    </button>
-                  ) : (
-                    <div></div>
-                  )}
+                <div>
+                  {renderStepContent()}
                   
-                  {step < 3 ? (
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-                    >
-                      Continue
-                    </button>
-                  ) : (
-                    <form onSubmit={handleSubmit}>
+                  <div className="flex justify-between mt-8">
+                    {step > 1 ? (
                       <button
-                        type="submit"
-                        disabled={loading}
-                        className={`py-2 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 flex items-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        type="button"
+                        onClick={handlePrevious}
+                        className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 flex items-center"
                       >
-                        {loading ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </>
-                        ) : 'Complete Registration'}
+                        <ChevronLeft size={16} className="mr-1" /> Previous
                       </button>
-                    </form>
-                  )}
+                    ) : (
+                      <div></div>
+                    )}
+                    
+                    {step < 3 ? (
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+                      >
+                        Continue
+                      </button>
+                    ) : (
+                      <form onSubmit={handleSubmit}>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className={`py-2 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 flex items-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        >
+                          {loading ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processing...
+                            </>
+                          ) : 'Complete Registration'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </div>
+                
+                {step === 1 && (
+                  <p className="mt-6 text-center text-sm text-gray-600">
+                    Already have an account?{' '}
+                    <Link href="/login" className="font-medium text-emerald-600 hover:text-emerald-500">
+                      Sign in
+                    </Link>
+                  </p>
+                )}
               </div>
-              
-              {step === 1 && (
-                <p className="mt-6 text-center text-sm text-gray-600">
-                  Already have an account?{' '}
-                  <Link href="/login" className="font-medium text-emerald-600 hover:text-emerald-500">
-                    Sign in
-                  </Link>
-                </p>
-              )}
             </div>
           </div>
         </div>
       </div>
-    </div>
+      
+      {/* Image Cropper */}
+      {showCropper && tempImageFile && (
+        <ImageCropper
+          imageFile={tempImageFile}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+          aspectRatio={1}
+          circularCrop={true}
+        />
+      )}
+    </>
   );
 } 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '../../../../../../lib/mongodb';
+import clientPromise, { connectDB } from '@/lib/mongodb';
 import { ObjectId, GridFSBucket } from 'mongodb';
 
 /**
@@ -19,22 +19,48 @@ export async function POST(request) {
 
     // Parse the form data
     const formData = await request.formData();
-    const userId = formData.get('userId');
+    let userId = formData.get('userId');
     const userType = formData.get('userType') || 'student'; // Default to student
     const file = formData.get('file');
 
     console.log('Image upload request:', { userId, userType, fileName: file?.name });
 
-    if (!userId) {
-      console.log('Missing userId in request');
+    // If userId is undefined or 'undefined', try to get it from the token
+    if (!userId || userId === 'undefined') {
+      console.log('UserID not provided in form, attempting to get from token');
+      
+      // Get JWT token from cookie
+      const token = request.cookies.get('token')?.value;
+      
+      if (token) {
+        try {
+          // Verify JWT token
+          const JWT_SECRET = process.env.JWT_SECRET || 'startupsnet-secure-jwt-secret-key-2024';
+          const secret = new TextEncoder().encode(JWT_SECRET);
+          
+          const jose = await import('jose');
+          const { payload } = await jose.jwtVerify(token, secret);
+          
+          if (payload.userId) {
+            userId = payload.userId;
+            console.log('Retrieved userId from token:', userId);
+          }
+        } catch (tokenError) {
+          console.error('Error getting userId from token:', tokenError);
+        }
+      }
+    }
+
+    if (!userId || userId === 'undefined') {
+      console.log('Missing or invalid userId in request');
       return NextResponse.json(
-        { error: 'User ID is required' },
+        { error: 'Valid user ID is required' },
         { status: 400 }
       );
     }
 
-    if (!file || !(file instanceof File)) {
-      console.log('Missing or invalid file in request');
+    if (!file) {
+      console.log('Missing file in request');
       return NextResponse.json(
         { error: 'Image file is required' },
         { status: 400 }
@@ -79,7 +105,16 @@ export async function POST(request) {
                           'clubs';
     
     // Convert string ID to ObjectId
-    const userObjectId = new ObjectId(userId);
+    let userObjectId;
+    try {
+      userObjectId = new ObjectId(userId);
+    } catch (error) {
+      console.error('Invalid ObjectId format:', error);
+      return NextResponse.json(
+        { error: 'Invalid user ID format' },
+        { status: 400 }
+      );
+    }
     
     // Try to find the user in either database
     for (const dbName of databases) {

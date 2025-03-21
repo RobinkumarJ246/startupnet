@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '../../../../../../lib/mongodb';
+import clientPromise, { connectDB } from '@/lib/mongodb';
 import { ObjectId, GridFSBucket } from 'mongodb';
 
 /**

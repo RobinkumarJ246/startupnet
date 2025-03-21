@@ -27,10 +27,57 @@ export default function ProfileHeader({ user, onEditClick }) {
       case 'student':
         // Format the education information properly - show college with priority
         let educationInfo = '';
+        let collegeTooltip = '';
         if (user.college && user.college !== '') {
-          educationInfo = `Student at ${user.college}`;
+          const collegeParts = user.college.split('(Id:');
+          const collegeName = collegeParts[0].trim();
+          const collegeId = collegeParts.length > 1 ? `(Id: ${collegeParts[1].trim()}` : '';
+          
+          // Store full college info with ID for tooltip
+          if (collegeId) {
+            collegeTooltip = `${collegeName} ${collegeId}`;
+          }
+          
+          // Display college name and university if both are available
+          if (user.university) {
+            educationInfo = (
+              <span>
+                Student at <span 
+                  className="font-medium text-indigo-700 dark:text-indigo-400"
+                  title={collegeTooltip || undefined}
+                >
+                  {collegeName}
+                </span>, Affiliated to <span 
+                  className="font-medium text-indigo-700 dark:text-indigo-400"
+                >
+                  {user.university.split(',')[0]}
+                </span>
+              </span>
+            );
+          } else {
+            // Only college is available
+            educationInfo = (
+              <span>
+                Student at <span 
+                  className="font-medium text-indigo-700 dark:text-indigo-400"
+                  title={collegeTooltip || undefined}
+                >
+                  {collegeName}
+                </span>
+              </span>
+            );
+          }
         } else if (user.university) {
-          educationInfo = `Student at ${user.university.split(',')[0]}`;
+          // Add tooltip and styling for university too
+          educationInfo = (
+            <span>
+              Student at <span 
+                className="font-medium text-indigo-700 dark:text-indigo-400"
+              >
+                {user.university.split(',')[0]}
+              </span>
+            </span>
+          );
         }
         
         return {
@@ -41,11 +88,20 @@ export default function ProfileHeader({ user, onEditClick }) {
           gradientClass: 'from-indigo-500 to-purple-600',
           details: [
             { icon: <MapPin className="h-5 w-5 text-gray-400" />, label: 'Location', value: user.location },
-            // Only show university if different from college
-            ...(user.college && user.university && user.college !== user.university ? 
-              [{ icon: <GraduationCap className="h-5 w-5 text-gray-400" />, label: 'University', value: user.university }] : 
-              user.university && !user.college ? 
-              [{ icon: <GraduationCap className="h-5 w-5 text-gray-400" />, label: 'University', value: user.university }] : 
+            // Show college or university with appropriate labels and tooltips
+            ...(user.college ? 
+              [{ 
+                icon: <GraduationCap className="h-5 w-5 text-gray-400" />, 
+                label: 'College', 
+                value: user.college.split('(Id:')[0].trim(),
+                tooltip: collegeTooltip || user.college 
+              }] : 
+              user.university ? 
+              [{ 
+                icon: <GraduationCap className="h-5 w-5 text-gray-400" />, 
+                label: 'University', 
+                value: user.university 
+              }] : 
               []),
             { icon: <Briefcase className="h-5 w-5 text-gray-400" />, label: 'Major', value: user.major },
             { icon: <CalendarDays className="h-5 w-5 text-gray-400" />, label: 'Graduation Year', value: user.graduationYear },
@@ -56,27 +112,115 @@ export default function ProfileHeader({ user, onEditClick }) {
           icon: <Building className="h-6 w-6 text-white" />,
           iconBgClass: 'bg-emerald-600',
           title: user.companyName || user.name || 'Startup',
-          subtitle: user.industry ? `${user.stage || ''} Startup • ${user.industry}` : 'Startup',
+          subtitle: (
+            <span>
+              {user.stage && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 mr-2">
+                  {user.stage}
+                </span>
+              )}
+              {user.industry && (
+                <span className="text-gray-600">
+                  {user.industry}
+                </span>
+              )}
+              {!user.stage && !user.industry && 'Startup'}
+            </span>
+          ),
           gradientClass: 'from-emerald-500 to-teal-600',
           details: [
             { icon: <Briefcase className="h-5 w-5 text-gray-400" />, label: 'Industry', value: user.industry },
             { icon: <Building className="h-5 w-5 text-gray-400" />, label: 'Stage', value: user.stage },
+            { icon: <Users className="h-5 w-5 text-gray-400" />, label: 'Team Size', value: user.teamSize || user.companySize },
             { icon: <CalendarDays className="h-5 w-5 text-gray-400" />, label: 'Founded', value: user.foundingDate },
             { icon: <MapPin className="h-5 w-5 text-gray-400" />, label: 'Location', value: user.location },
+            { icon: <Globe className="h-5 w-5 text-gray-400" />, label: 'Website', value: user.website },
           ],
         };
       case 'club':
+        // Determine club affiliation display
+        let affiliationInfo = '';
+        if (user.university) {
+          const universityName = user.university === 'Other' && user.otherUniversity 
+            ? user.otherUniversity 
+            : user.university;
+          
+          if (user.college) {
+            // Club is affiliated with a specific college within the university
+            affiliationInfo = (
+              <span>
+                University Club at <span className="font-medium text-purple-700 dark:text-purple-400">
+                  {user.college}
+                </span>, Affiliated to <span className="font-medium text-purple-700 dark:text-purple-400">
+                  {universityName.split(',')[0]}
+                </span>
+              </span>
+            );
+          } else {
+            // Club is directly affiliated with the university
+            affiliationInfo = (
+              <span>
+                University Club at <span className="font-medium text-purple-700 dark:text-purple-400">
+                  {universityName.split(',')[0]}
+                </span>
+              </span>
+            );
+          }
+        } else if (user.parentOrganization) {
+          // Fallback for legacy data
+          affiliationInfo = (
+            <span>
+              University Club at <span className="font-medium text-purple-700 dark:text-purple-400">
+                {user.parentOrganization.split(',')[0]}
+              </span>
+            </span>
+          );
+        } else {
+          affiliationInfo = <span>University Club</span>;
+        }
+
         return {
           icon: <Users className="h-6 w-6 text-white" />,
           iconBgClass: 'bg-purple-600',
           title: user.clubName || user.name || 'Club',
-          subtitle: user.parentOrganization ? `University Club at ${user.parentOrganization.split(',')[0]}` : 'University Club',
+          subtitle: (
+            <span>
+              {affiliationInfo}
+              {user.memberCount && (
+                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  {user.memberCount} members
+                </span>
+              )}
+            </span>
+          ),
           gradientClass: 'from-purple-500 to-indigo-600',
           details: [
-            { icon: <Building className="h-5 w-5 text-gray-400" />, label: 'Parent Organization', value: user.parentOrganization },
+            // Show university with appropriate label
+            ...(user.university ? 
+              [{ 
+                icon: <Building className="h-5 w-5 text-gray-400" />, 
+                label: 'University', 
+                value: user.university === 'Other' ? user.otherUniversity : user.university 
+              }] : 
+              user.parentOrganization ? 
+              [{ 
+                icon: <Building className="h-5 w-5 text-gray-400" />, 
+                label: 'Parent Organization', 
+                value: user.parentOrganization 
+              }] : 
+              []),
+            // Show college if available
+            ...(user.college ? 
+              [{ 
+                icon: <Building className="h-5 w-5 text-gray-400" />, 
+                label: 'College', 
+                value: user.college 
+              }] : 
+              []),
             { icon: <Users className="h-5 w-5 text-gray-400" />, label: 'Member Count', value: user.memberCount },
             { icon: <CalendarDays className="h-5 w-5 text-gray-400" />, label: 'Founded', value: user.foundedYear },
             { icon: <MapPin className="h-5 w-5 text-gray-400" />, label: 'Location', value: user.location },
+            { icon: <Globe className="h-5 w-5 text-gray-400" />, label: 'Website', value: user.website },
           ],
         };
       default:
@@ -211,7 +355,7 @@ export default function ProfileHeader({ user, onEditClick }) {
   return (
     <div className="bg-white shadow rounded-xl overflow-hidden mb-8">
       {/* Cover Photo */}
-      <div className={`h-40 md:h-56 bg-gradient-to-r ${typeSpecificData.gradientClass} relative`}>
+      <div className={`h-40 md:h-56 bg-gradient-to-r ${typeSpecificData.gradientClass} relative animate-gradient-x`}>
         <button
           onClick={onEditClick}
           className="absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm text-white p-2 rounded-full hover:bg-opacity-30 transition-colors z-10"
@@ -318,19 +462,22 @@ export default function ProfileHeader({ user, onEditClick }) {
 
         {/* Profile details - only showing important ones publicly */}
         <div className="mt-4 border-t border-gray-100 pt-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {visibleDetails.map((detail, index) => 
-              detail.value ? (
-                <div key={index} className="flex items-center">
+          {visibleDetails.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 mt-4">
+              {visibleDetails.map((detail, index) => (
+                <div key={index} className="flex items-center text-sm">
                   {detail.icon}
-                  <div className="ml-2">
-                    <p className="text-sm text-gray-500">{detail.label}</p>
-                    <p className="font-medium text-gray-900">{formatValue(detail.value)}</p>
-                  </div>
+                  <span className="ml-2 text-gray-500">{detail.label}:</span>
+                  <span 
+                    className="ml-1 text-gray-900 truncate"
+                    title={detail.tooltip || formatValue(detail.value)}
+                  >
+                    {formatValue(detail.value)}
+                  </span>
                 </div>
-              ) : null
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
