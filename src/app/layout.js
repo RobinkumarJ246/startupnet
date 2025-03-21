@@ -3,6 +3,8 @@ import "./globals.css";
 
 // Import Assistant Provider
 import { AssistantProvider, RobotAssistant } from './components/InteractiveAssistant'
+// Import Auth Provider
+import { AuthProvider } from './lib/auth/AuthContext';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,10 +27,12 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AssistantProvider>
-          {children}
-          <RobotAssistant />
-        </AssistantProvider>
+        <AuthProvider>
+          <AssistantProvider>
+            {children}
+            <RobotAssistant />
+          </AssistantProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -6,7 +6,7 @@ import Navbar from './components/landing/Navbar';
 export default function NotFound() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-      <Navbar />
+      <Navbar forceLight={true} />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="relative">

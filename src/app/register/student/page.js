@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -14,12 +14,14 @@ import {
   Check,
   AlertCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Image
 } from 'lucide-react';
 
 // Import the AcademicForm component
 import AcademicForm from '@/app/components/student-registration/AcademicForm';
 import Navbar from '@/app/components/landing/Navbar';
+import ImageCropper from '@/app/components/shared/ImageCropper';
 
 export default function StudentRegistration() {
   const router = useRouter();
@@ -53,6 +55,23 @@ export default function StudentRegistration() {
     githubUrl: '',
     interests: []
   });
+
+  // Add new state for profile image
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
+
+  // Add new state for image cropper
+  const [showCropper, setShowCropper] = useState(false);
+  const [tempImageFile, setTempImageFile] = useState(null);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      console.log('User already logged in, redirecting to explore page');
+      router.push('/explore');
+    }
+  }, [router]);
 
   // Predefined options
   const skillOptions = [
@@ -153,26 +172,86 @@ export default function StudentRegistration() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateStep(step)) return;
-    
-    // Only proceed with submission on the final step
-    if (step !== 3) {
-      handleNext();
-      return;
-    }
     
     setLoading(true);
     
     try {
-      // Here you would typically call your API to register the user
-      console.log('Submitting student registration:', formData);
+      // First register the user
+      const response = await fetch('/api/register/student', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!response.ok) {
+        const errorResponse = await response.json();
+        console.error('Error response:', errorResponse);
+        if (errorResponse.errors) {
+          setFormErrors(errorResponse.errors);
+        } else {
+          throw new Error(`Network response was not ok: ${response.status}`);
+        }
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('Registration successful:', data);
       
-      // Handle successful registration
-      router.push('/registration-success?type=student');
+      // Save user data to localStorage for automatic login
+      if (data.user) {
+        // Add the user type to the data
+        const userData = {
+          ...data.user,
+          type: 'student',
+          _id: data.id
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
+      // If there's a profile image, upload it
+      if (profileImage && data.id) {
+        try {
+          const imageFormData = new FormData();
+          imageFormData.append('userId', data.id);
+          imageFormData.append('userType', 'student');
+          imageFormData.append('file', profileImage);
+          
+          console.log('Uploading profile image for student:', {
+            userId: data.id,
+            fileSize: profileImage.size,
+            fileName: profileImage.name,
+            fileType: profileImage.type
+          });
+          
+          const imageResponse = await fetch('/api/profile/image/upload', {
+            method: 'POST',
+            body: imageFormData,
+            credentials: 'include', // Include cookies for auth
+          });
+          
+          if (!imageResponse.ok) {
+            const errorData = await imageResponse.json();
+            console.error('Failed to upload profile image:', errorData);
+          } else {
+            console.log('Profile image uploaded successfully');
+          }
+        } catch (imageError) {
+          console.error('Error uploading profile image:', imageError);
+          // We don't want to block registration if only the image upload fails
+        }
+      } else {
+        console.log('No profile image to upload or missing user ID:', { 
+          hasImage: !!profileImage, 
+          userId: data.id 
+        });
+      }
+      
+      // Navigate to profile page instead of success page since we're already logged in
+      router.push('/profile');
     } catch (error) {
       console.error('Registration error:', error);
       setFormErrors({
@@ -200,7 +279,7 @@ export default function StudentRegistration() {
                 {i + 1 < step ? <Check size={20} /> : i + 1}
               </div>
               <span className="text-xs mt-1 font-medium">
-                {i === 0 ? 'Account' : i === 1 ? 'Academic' : 'Skills'}
+                {i === 0 ? 'Account' : i === 1 ? 'Academic' : 'Personalization'}
               </span>
             </div>
           ))}
@@ -333,10 +412,49 @@ export default function StudentRegistration() {
 
   const renderSkillsAndInterestsStep = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Skills & Interests</h2>
-      <p className="text-gray-600">Help us personalize your experience by telling us about your skills and interests.</p>
+      <h2 className="text-2xl font-bold text-gray-900">Personalization</h2>
+      <p className="text-gray-600">Help us personalize your experience by telling us about yourself.</p>
       
       <div className="space-y-6">
+        {/* Profile Picture Upload */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Profile Picture (optional)
+          </label>
+          <div className="flex items-center space-x-4">
+            <div className="h-24 w-24 rounded-lg overflow-hidden border-2 border-gray-200 flex items-center justify-center bg-gray-50">
+              {profileImagePreview ? (
+                <img 
+                  src={profileImagePreview} 
+                  alt="Profile Preview" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="h-12 w-12 text-gray-400" />
+              )}
+            </div>
+            <div>
+              <label className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 cursor-pointer">
+                <Image size={16} className="mr-2" />
+                Upload Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handleProfileImageChange}
+                />
+              </label>
+              <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 5MB</p>
+            </div>
+          </div>
+          {formErrors.profileImage && (
+            <p className="mt-1 text-sm text-red-600 flex items-center">
+              <AlertCircle size={14} className="mr-1" />
+              {formErrors.profileImage}
+            </p>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Select your skills (optional)
@@ -451,6 +569,64 @@ export default function StudentRegistration() {
     </div>
   );
 
+  // Modify the profile image change handler
+  const handleProfileImageChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // Check file size (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        setFormErrors(prev => ({
+          ...prev,
+          profileImage: "Image must be less than 5MB"
+        }));
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        setFormErrors(prev => ({
+          ...prev,
+          profileImage: "File must be an image"
+        }));
+        return;
+      }
+      
+      // Store temporary file and show cropper
+      setTempImageFile(file);
+      setShowCropper(true);
+      
+      // Clear any previous errors
+      if (formErrors.profileImage) {
+        setFormErrors(prev => {
+          const newErrors = {...prev};
+          delete newErrors.profileImage;
+          return newErrors;
+        });
+      }
+    }
+  };
+
+  // Add handlers for the crop operation
+  const handleCropComplete = (croppedImageFile) => {
+    setProfileImage(croppedImageFile);
+    
+    // Create preview of cropped image
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setProfileImagePreview(e.target.result);
+    };
+    reader.readAsDataURL(croppedImageFile);
+    
+    // Close cropper
+    setShowCropper(false);
+  };
+
+  const handleCropCancel = () => {
+    setTempImageFile(null);
+    setShowCropper(false);
+  };
+
   const renderStepContent = () => {
     switch(step) {
       case 1: return renderAccountDetailsStep();
@@ -461,85 +637,98 @@ export default function StudentRegistration() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
-      <Navbar forceLight={true} />
-      
-      <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <Link href="/register" className="inline-flex items-center text-blue-600 hover:text-blue-800">
-              <ChevronLeft size={16} /> Back to account types
-            </Link>
-            <h1 className="mt-4 text-3xl font-extrabold text-gray-900">
-              Student Registration
-            </h1>
-            <p className="mt-2 text-lg text-gray-600">
-              Join our student community and connect with startups
-            </p>
-          </div>
-          
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-8">
-              {renderProgressBar()}
-              
-              <div>
-                {renderStepContent()}
+    <>
+      <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+        <Navbar forceLight={true} />
+        
+        <div className="pt-28 pb-12 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-8">
+              <Link href="/register" className="inline-flex items-center text-blue-600 hover:text-blue-800">
+                <ChevronLeft size={16} /> Back to account types
+              </Link>
+              <h1 className="mt-4 text-3xl font-extrabold text-gray-900">
+                Student Registration
+              </h1>
+              <p className="mt-2 text-lg text-gray-600">
+                Join our student community and connect with startups
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="p-8">
+                {renderProgressBar()}
                 
-                <div className="flex justify-between mt-8">
-                  {step > 1 ? (
-                    <button
-                      type="button"
-                      onClick={handlePrevious}
-                      className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
-                    >
-                      <ChevronLeft size={16} className="mr-1" /> Previous
-                    </button>
-                  ) : (
-                    <div></div>
-                  )}
+                <div>
+                  {renderStepContent()}
                   
-                  {step < 3 ? (
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Continue
-                    </button>
-                  ) : (
-                    <form onSubmit={handleSubmit}>
+                  <div className="flex justify-between mt-8">
+                    {step > 1 ? (
                       <button
-                        type="submit"
-                        disabled={loading}
-                        className={`py-2 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        type="button"
+                        onClick={handlePrevious}
+                        className="py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
                       >
-                        {loading ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Processing...
-                          </>
-                        ) : 'Complete Registration'}
+                        <ChevronLeft size={16} className="mr-1" /> Previous
                       </button>
-                    </form>
-                  )}
+                    ) : (
+                      <div></div>
+                    )}
+                    
+                    {step < 3 ? (
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        className="py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        Continue
+                      </button>
+                    ) : (
+                      <form onSubmit={handleSubmit}>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className={`py-2 px-6 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        >
+                          {loading ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processing...
+                            </>
+                          ) : 'Complete Registration'}
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 </div>
+                
+                {step === 1 && (
+                  <p className="mt-6 text-center text-sm text-gray-600">
+                    Already have an account?{' '}
+                    <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+                      Sign in
+                    </Link>
+                  </p>
+                )}
               </div>
-              
-              {step === 1 && (
-                <p className="mt-6 text-center text-sm text-gray-600">
-                  Already have an account?{' '}
-                  <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-                    Sign in
-                  </Link>
-                </p>
-              )}
             </div>
           </div>
         </div>
       </div>
-    </div>
+      
+      {/* Image Cropper */}
+      {showCropper && tempImageFile && (
+        <ImageCropper
+          imageFile={tempImageFile}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+          aspectRatio={1}
+          circularCrop={true}
+        />
+      )}
+    </>
   );
 } 

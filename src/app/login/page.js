@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useActionState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { login } from "./actions";
 import { 
   User, 
   Lock, 
@@ -11,268 +9,268 @@ import {
   Eye, 
   EyeOff, 
   ArrowRight,
-  Sparkles
+  Building,
+  Users,
+  GraduationCap,
+  AlertCircle,
+  Beaker
 } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../lib/auth/AuthContext';
 
 // Import Navbar component
 import Navbar from "../components/landing/Navbar";
 
-// Import assistant hooks
-import { 
-  useAssistant, 
-  useInputTrigger, 
-  useFormTrigger, 
-  useClickTrigger,
-  usePageLoadTrigger
-} from "../components/InteractiveAssistant";
+// Check if we're in development mode
+const isDev = process.env.NODE_ENV === 'development';
 
 export default function LoginPage() {
-  const [state, formAction] = useActionState(login, { errors: {} });
+  const router = useRouter();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [emailValue, setEmailValue] = useState('');
-  
-  // State for confetti particles
-  const [particles, setParticles] = useState([]);
-  
-  // References for assistant triggers
-  const formRef = useRef(null);
-  const emailRef = useRef(null);
-  const passwordRef = useRef(null);
-  const loginBtnRef = useRef(null);
-  const registerLinkRef = useRef(null);
-  const rememberMeRef = useRef(null);
-  const forgotPasswordRef = useRef(null);
-  
-  // Generate stable confetti particles on mount
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [userType, setUserType] = useState('student');
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showDevOptions, setShowDevOptions] = useState(false);
+
+  // Redirect if already logged in
   useEffect(() => {
-    const newParticles = Array(15).fill(null).map((_, index) => ({
-      id: index,
-      left: `${Math.random() * 100}%`,
-      top: `-${Math.random() * 10}px`,
-      animationDelay: `${Math.random() * 2}s`,
-      animationDuration: `${1 + Math.random() * 2}s`
-    }));
-    
-    setParticles(newParticles);
-  }, []);
-  
-  // Access assistant functions
-  const { 
-    showAssistant, 
-    hideAssistant, 
-    setRandomMessages, 
-    toggleRandom, 
-    setRandomInterval,
-    setMessage,
-    setMessageTimeout,
-    setRobotIcon,
-    setAssistantName,
-    setAnimationSpeed
-  } = useAssistant();
-  
-  // Define handleInput outside useEffect so it's available to JSX
-  const handleInput = (e) => {
-    // Make this less intrusive - only show assistant for longer emails 
-    // and not on every keystroke
-    if (e.target.value && e.target.value.length > 8 && e.target.value.includes('@')) {
-      const username = e.target.value.split('@')[0];
-      if (username) {
-        // Use a longer delay to prevent interference with typing
-        showAssistant(`Hello ${username}! Please enter your password too.`, 5000);
-      }
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      console.log('User already logged in, redirecting to explore page');
+      router.push('/explore');
     }
+  }, [router]);
+
+  // Handle email input changes
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
   };
-  
-  // Memoize the setup function to avoid recreation on every render
-  const setupAssistant = useCallback(() => {
-    // Set custom assistant properties for login page
-    setAssistantName("LoginBot");
-    setRobotIcon("user");
-    setAnimationSpeed(400); // Slightly slower animations
-    setMessageTimeout(7000); // Default 7-second timeout for all messages
-    
-    // Set random messages specific to the login page
-    setRandomMessages([
-      "Need help logging in?",
-      "Forgot your password? Click the 'Forgot password' link.",
-      "Make sure you're using the email you registered with.",
-      "Welcome back! Glad to see you again.",
-      "Having trouble? Try resetting your password."
-    ]);
-    
-    // Keep random messages disabled for login page to avoid distractions
-    toggleRandom(false);
-    setRandomInterval(20000); // Show random messages every 20 seconds
-  }, [
-    setRandomMessages, 
-    toggleRandom, 
-    setRandomInterval, 
-    setMessageTimeout, 
-    setRobotIcon, 
-    setAssistantName,
-    setAnimationSpeed
-  ]);
-  
-  // Reset function for cleanup
-  const resetAssistant = useCallback(() => {
-    // Reset assistant to defaults when leaving page
-    setAssistantName("Assistant");
-    setRobotIcon("bot");
-    setAnimationSpeed(300);
-    setMessageTimeout(7000);
-    toggleRandom(false);
-  }, [
-    toggleRandom, 
-    setMessageTimeout, 
-    setRobotIcon, 
-    setAssistantName,
-    setAnimationSpeed
-  ]);
-  
-  // Configure the assistant specifically for the login page
-  useEffect(() => {
-    setupAssistant();
-    
-    // Cleanup on unmount
-    return resetAssistant;
-  }, [setupAssistant, resetAssistant]);
-  
-  // Custom trigger for the forgot password link
-  useEffect(() => {
-    if (!forgotPasswordRef.current) return;
-    
-    const handleClick = () => {
-      showAssistant("I'll send you a password reset link to your email address.", 10000); // 10 second timeout
-    };
-    
-    forgotPasswordRef.current.addEventListener('click', handleClick);
-    return () => {
-      if (forgotPasswordRef.current) {
-        forgotPasswordRef.current.removeEventListener('click', handleClick);
-      }
-    };
-  }, [showAssistant]);
-  
-  // Form submission trigger with custom timeout
-  useEffect(() => {
-    if (!formRef.current) return;
-    
-    const handleSubmit = () => {
-      showAssistant("Logging you in! Please wait...", 5000); // 5 second timeout
-    };
-    
-    formRef.current.addEventListener('submit', handleSubmit);
-    return () => {
-      if (formRef.current) {
-        formRef.current.removeEventListener('submit', handleSubmit);
-      }
-    };
-  }, [showAssistant]);
-  
-  // Now in the email input focus effect, don't redefine handleInput
-  useEffect(() => {
-    if (!emailRef.current) return;
-    
-    const handleFocus = () => {
-      showAssistant("Enter your email address here");
-    };
-    
-    emailRef.current.addEventListener('focus', handleFocus);
-    
-    return () => {
-      if (emailRef.current) {
-        emailRef.current.removeEventListener('focus', handleFocus);
-      }
-    };
-  }, [showAssistant]);
-  
-  // Custom handler for remember me checkbox
+
+  // Handle password input changes
+  const handlePasswordChange = (e) => {
+    setPassword(e.target.value);
+  };
+
+  // Handle remember me checkbox
   const handleRememberMeChange = (e) => {
     setRememberMe(e.target.checked);
-    
-    // Get username from email if available, without requiring @ symbol
-    const username = emailValue ? emailValue.split('@')[0] : null;
-    
-    if (e.target.checked) {
-      // Show assistant message with or without username
-      const messages = username ? [
-        `Okay ${username}, I got you! I'll remember you next time.`,
-        `Sure thing, ${username}! I've saved your name.`,
-        `Got it, ${username}! I'll remember your account.`,
-        `No problem, ${username}! I'll remember you when you come back.`,
-      ] : [
-        "Okay, I got you! I'll remember you next time.",
-        "Sure thing! I've saved your login details.",
-        "Got it! I'll remember you.",
-        "No problem! I'll remember you when you come back."
-      ];
-      
-      const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-      
-      // Use the custom 7-second timeout that's set up by default
-      showAssistant(randomMsg);
+  };
+
+  // Type selector buttons
+  const handleUserTypeChange = (type) => {
+    setUserType(type);
+  };
+
+  // Toggle development options
+  const toggleDevOptions = () => {
+    if (isDev) {
+      setShowDevOptions(!showDevOptions);
     }
   };
-  
-  // Add a proper handler for email value changes
-  const handleEmailChange = (e) => {
-    setEmailValue(e.target.value);
+
+  // Use test login for development
+  const handleTestLogin = async () => {
+    if (!isDev) return;
+    
+    setLoading(true);
+    setError('');
+    setSuccessMessage('');
+    
+    try {
+      console.log("Using test login with:", { email, userType });
+      
+      const response = await fetch('/api/auth/test-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email || 'test@example.com',
+          userType
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Test login failed');
+      }
+
+      // Store user data in localStorage for UI purposes only
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
+      setSuccessMessage('Test login successful! Redirecting...');
+
+      // Redirect after a short delay
+      setTimeout(() => {
+        router.push('/explore');
+      }, 1000);
+      
+    } catch (err) {
+      console.error("Test login error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle form submission
-  const handleSubmit = async (formData) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setLoading(true);
-    await formAction(formData);
-    setLoading(false);
+    setError('');
+    setSuccessMessage('');
+    
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      // Update UI to show loading state
+      setLoading(true);
+      
+      const result = await login(email, password, userType);
+      
+      if (!result.success) {
+        setError(result.error || 'Login failed. Please check your credentials.');
+        setLoading(false);
+        return;
+      }
+      
+      // Show success message before redirecting
+      setSuccessMessage('Login successful! Redirecting...');
+      
+      // Redirect after a short delay
+      setTimeout(() => {
+        router.push('/explore');
+      }, 800);
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
+      setLoading(false);
+    }
   };
 
-  // Use the built-in hooks instead of creating custom effects where possible
-  useClickTrigger("Signing you in now!", loginBtnRef);
-  useClickTrigger("Want to create a new account?", registerLinkRef);
-  usePageLoadTrigger("Welcome to the login page! Please sign in to continue.", 1500);
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-indigo-50 to-white overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-indigo-50 to-white">
       {/* Navbar positioned at the top */}
       <Navbar forceLight={true} />
       
-      <div className="relative flex flex-col justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute top-0 inset-x-0 w-full h-32 overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 w-full h-full flex justify-around">
-            {particles.map((particle) => (
-              <Sparkles 
-                key={particle.id} 
-                size={16} 
-                className="text-indigo-500 absolute animate-fall" 
-                style={{ 
-                  left: particle.left, 
-                  top: particle.top,
-                  animationDelay: particle.animationDelay,
-                  animationDuration: particle.animationDuration
-                }} 
-              />
-            ))}
+      <div className="flex justify-center items-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+        <div className="mt-6 w-full max-w-md space-y-8">
+          <div>
+            <Link href="/" className="flex justify-center mb-6">
+              <span className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+                StartupsNet
+              </span>
+            </Link>
+            <h2 className="text-center text-3xl font-extrabold text-gray-900">Welcome back</h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Sign in to continue your journey with our growing community
+            </p>
+            {isDev && (
+              <div className="mt-2 flex justify-center">
+                <button 
+                  onClick={toggleDevOptions}
+                  className="inline-flex items-center text-xs text-indigo-600 hover:text-indigo-500"
+                >
+                  <Beaker className="w-3 h-3 mr-1" />
+                  {showDevOptions ? 'Hide dev options' : 'Dev options'}
+                </button>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="w-full sm:mx-auto sm:w-full sm:max-w-md mt-4">
-          <Link href="/" className="flex justify-center mb-6 group">
-            <span className="text-2xl sm:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 transition-transform duration-300 transform group-hover:scale-105">
-              StartupsNet
-            </span>
-          </Link>
-          <h2 className="text-center text-2xl sm:text-3xl font-extrabold text-gray-900 animate-fade-in-up">Welcome back</h2>
-          <p className="mt-2 text-center text-sm text-gray-600 animate-fade-in-up px-4">
-            Sign in to continue your journey with our growing community
-          </p>
-        </div>
+          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            {/* User Type Selection */}
+            <div className="flex space-x-2 mb-6">
+              <button
+                type="button"
+                onClick={() => handleUserTypeChange('student')}
+                className={`flex-1 flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  userType === 'student'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <GraduationCap className="h-4 w-4 mr-2" />
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUserTypeChange('startup')}
+                className={`flex-1 flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  userType === 'startup'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Building className="h-4 w-4 mr-2" />
+                Startup
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUserTypeChange('club')}
+                className={`flex-1 flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  userType === 'club'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Club
+              </button>
+            </div>
 
-        <div className="mt-8 w-full sm:mx-auto sm:w-full sm:max-w-md px-4">
-          <div className="bg-white py-8 px-4 shadow-xl rounded-xl sm:px-10 border border-gray-100 transition-all duration-300 hover:shadow-lg">
-            <form ref={formRef} action={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200 flex items-center text-red-700 animate-fadeIn">
+                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200 flex items-center text-green-700 animate-fadeIn">
+                <div className="rounded-full bg-green-100 p-1 mr-2">
+                  <svg className="h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-sm">{successMessage}</span>
+              </div>
+            )}
+
+            {/* Dev mode test login */}
+            {isDev && showDevOptions && (
+              <div className="mb-6 p-4 bg-amber-50 rounded-lg">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-sm font-medium text-amber-800 flex items-center">
+                    <Beaker className="h-4 w-4 mr-1" />
+                    Development Testing
+                  </h3>
+                </div>
+                <p className="text-xs text-amber-700 mb-3">
+                  This option bypasses password verification for development testing only.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleTestLogin}
+                  disabled={loading}
+                  className="w-full bg-amber-600 text-white py-2 px-4 rounded-md text-sm hover:bg-amber-700 transition-colors"
+                >
+                  {loading ? 'Loading...' : 'Use Test Login'}
+                </button>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email address</label>
                 <div className="mt-1 relative rounded-md shadow-sm">
@@ -283,21 +281,14 @@ export default function LoginPage() {
                     type="email"
                     id="email"
                     name="email"
-                    className="py-3 px-4 pl-10 block w-full border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="py-3 px-4 pl-10 block w-full border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="your.email@example.com"
                     required
-                    value={emailValue}
+                    value={email}
                     onChange={handleEmailChange}
-                    onBlur={handleInput}
                     inputMode="email"
-                    ref={emailRef}
                   />
                 </div>
-                {state?.errors?.email && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
-                    {state.errors.email[0]}
-                  </p>
-                )}
               </div>
 
               <div>
@@ -307,13 +298,14 @@ export default function LoginPage() {
                     <Lock size={18} className="text-gray-500" />
                   </div>
                   <input
-                    ref={passwordRef}
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
                     required
-                    className="py-3 px-4 pl-10 pr-10 block w-full border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={password}
+                    onChange={handlePasswordChange}
+                    className="py-3 px-4 pl-10 pr-10 block w-full border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="••••••••"
                   />
                   <button
@@ -325,17 +317,11 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-                {state?.errors?.password && (
-                  <p className="mt-1 text-sm text-red-600 flex items-center">
-                    {state.errors.password[0]}
-                  </p>
-                )}
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <input
-                    ref={rememberMeRef}
                     id="remember-me"
                     name="remember-me"
                     type="checkbox"
@@ -349,27 +335,19 @@ export default function LoginPage() {
                 </div>
 
                 <div className="text-sm">
-                  <a 
-                    ref={forgotPasswordRef}
-                    href="#" 
-                    className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200"
+                  <Link
+                    href="/forgot-password"
+                    className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
                   >
                     Forgot password?
-                  </a>
+                  </Link>
                 </div>
               </div>
 
-              {state?.errors?.general && (
-                <div className="text-sm text-red-600 text-center bg-red-50 p-3 rounded-lg border border-red-100 animate-fade-in-up">
-                  {state.errors.general}
-                </div>
-              )}
-
               <button 
-                ref={loginBtnRef}
                 type="submit" 
                 disabled={loading}
-                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 transform hover:translate-y-[-2px]"
+                className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -387,15 +365,14 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <div className="flex flex-col sm:flex-row items-center justify-center space-y-2 sm:space-y-0 sm:space-x-2">
+            <div className="mt-6">
+              <div className="flex justify-center">
                 <span className="text-sm text-gray-500">Don't have an account?</span>
                 <Link 
-                  ref={registerLinkRef}
                   href="/register" 
-                  className="flex items-center font-medium text-indigo-600 hover:text-indigo-500 transition-colors duration-200"
+                  className="ml-1 font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
                 >
-                  Create an account <ArrowRight size={14} className="ml-1" />
+                  Create an account
                 </Link>
               </div>
             </div>
@@ -405,3 +382,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

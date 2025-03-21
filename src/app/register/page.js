@@ -24,9 +24,11 @@ import {
   Rocket,
   Code,
   Zap,
-  Star
+  Star,
+  AlertCircle
 } from 'lucide-react';
 import Navbar from '../components/landing/Navbar';
+import { TextSkeleton, CardSkeleton } from '../components/shared/SkeletonLoader';
 
 function Registerform() {
 
@@ -60,7 +62,9 @@ const type = searchParams.get('type');
     // Club fields
     clubName: '',
     clubType: 'university', // university or independent
-    parentOrganization: '',
+    university: '', // For university clubs
+    college: '', // For clubs in a specific college within university
+    otherUniversity: '', // For universities not in the dropdown
     memberCount: '',
     clubDescription: '',
     
@@ -84,6 +88,15 @@ const type = searchParams.get('type');
       setRegistrationType(type);
     }
   }, [type]);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      console.log('User already logged in, redirecting to explore page');
+      router.push('/explore');
+    }
+  }, [router]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -592,30 +605,87 @@ const type = searchParams.get('type');
       </div>
       
       {formData.clubType === 'university' && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="parentOrganization">
-            Parent University/College
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Building size={18} className="text-gray-500" />
+        <>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="university">
+              University
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Building size={18} className="text-gray-500" />
+              </div>
+              <select 
+                id="university" 
+                name="university" 
+                className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                required 
+                value={formData.university}
+                onChange={handleChange}
+              >
+                <option value="">Select your university</option>
+                <option value="MIT">Massachusetts Institute of Technology</option>
+                <option value="Stanford">Stanford University</option>
+                <option value="Harvard">Harvard University</option>
+                <option value="Caltech">California Institute of Technology</option>
+                <option value="VIT">Vellore Institute of Technology</option>
+                <option value="IIT Delhi">Indian Institute of Technology Delhi</option>
+                <option value="IIT Bombay">Indian Institute of Technology Bombay</option>
+                <option value="BITS Pilani">Birla Institute of Technology and Science, Pilani</option>
+                <option value="NIT Trichy">National Institute of Technology Tiruchirappalli</option>
+                <option value="Other">Other (specify below)</option>
+              </select>
             </div>
-            <input 
-              type="text" 
-              id="parentOrganization" 
-              name="parentOrganization" 
-              className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-              placeholder="MIT" 
-              value={formData.parentOrganization}
-              onChange={handleChange}
-            />
           </div>
-        </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="college">
+              College (if different from university)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Building size={18} className="text-gray-500" />
+              </div>
+              <input 
+                type="text" 
+                id="college" 
+                name="college" 
+                className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                placeholder="School of Engineering" 
+                value={formData.college}
+                onChange={handleChange}
+              />
+              <p className="text-xs text-gray-500 mt-1">Leave blank if your club is directly affiliated with the university</p>
+            </div>
+          </div>
+          
+          {formData.university === "Other" && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="otherUniversity">
+                Specify University
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Building size={18} className="text-gray-500" />
+                </div>
+                <input 
+                  type="text" 
+                  id="otherUniversity" 
+                  name="otherUniversity" 
+                  className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                  placeholder="Enter your university name" 
+                  required={formData.university === "Other"}
+                  value={formData.otherUniversity}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
       
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="memberCount">
-          Approximate Member Count
+          Approximate Member Count (optional)
         </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -625,11 +695,22 @@ const type = searchParams.get('type');
             type="number" 
             id="memberCount" 
             name="memberCount" 
+            min="0"
             className="py-3 px-4 pl-10 block w-full border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
             placeholder="50" 
             value={formData.memberCount}
-            onChange={handleChange}
+            onChange={(e) => {
+              // Prevent negative values
+              const value = parseInt(e.target.value);
+              if (!isNaN(value) && value >= 0) {
+                handleChange(e);
+              } else if (e.target.value === '') {
+                // Allow empty value (optional)
+                handleChange(e);
+              }
+            }}
           />
+          <p className="text-xs text-gray-500 mt-1">Enter the approximate number of active members</p>
         </div>
       </div>
       
@@ -778,52 +859,38 @@ const type = searchParams.get('type');
 }
 
 // Account type component with animation effects
-const AccountTypeCard = ({ type, title, icon: Icon, description, features, gradient, isSelected, onClick }) => {
-  return (
-    <div 
-      onClick={() => onClick(type)}
-      className={`relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 group
-        ${isSelected ? 'ring-4 ring-indigo-500 scale-[1.02]' : 'shadow-lg hover:shadow-xl'}`}
-    >
-      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-90`}></div>
-      
-      {/* Decoration */}
-      <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-2xl transform rotate-12 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-      <div className="absolute -left-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl transform -rotate-12 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-      
-      <div className="relative p-8">
-        <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-6 transform transition-transform duration-300 group-hover:scale-110">
-          <Icon size={32} className="text-white" />
-        </div>
-        
-        <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
-        <p className="text-white/90 mb-6 text-sm md:text-base">
-          {description}
-        </p>
-        
-        <ul className="space-y-2 mb-6">
-          {features.map((feature, i) => (
-            <li key={i} className="flex items-center text-white/90 text-sm">
-              <Check className="mr-2 h-4 w-4 text-white/70" />
-              {feature}
-            </li>
-          ))}
-        </ul>
-        
-        <div className="flex items-center text-white mt-auto">
-          <span className="text-sm font-medium">Select to continue</span>
-          <ArrowRight className="ml-2 h-4 w-4 transform transition-transform duration-300 group-hover:translate-x-1" />
-        </div>
-      </div>
-      
-      {isSelected && (
-        <div className="absolute top-4 right-4 bg-white rounded-full p-1">
-          <Check className="h-5 w-5 text-indigo-600" />
+const AccountTypeCard = ({ type, title, icon: Icon, description, features, gradient, isSelected, onClick, comingSoon }) => (
+  <div 
+    onClick={() => onClick(type)}
+    className={`relative rounded-xl overflow-hidden transition-all duration-300 transform cursor-pointer ${
+      isSelected ? 'ring-4 ring-indigo-500 scale-105' : 'hover:scale-105 hover:shadow-lg'
+    }`}
+  >
+    <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r ${gradient}`}></div>
+    <div className="p-6 bg-white shadow rounded-xl border border-gray-100">
+      {comingSoon && (
+        <div className="absolute top-3 right-3 bg-amber-100 text-amber-800 text-xs font-medium px-2 py-1 rounded-full">
+          Coming Soon
         </div>
       )}
+      <div className="flex justify-center mb-4">
+        <div className={`w-16 h-16 rounded-full bg-gradient-to-r ${gradient} flex items-center justify-center text-white`}>
+          <Icon size={24} />
+        </div>
+      </div>
+      <h3 className="text-xl font-bold text-center mb-2">{title}</h3>
+      <p className="text-gray-600 text-center mb-4">{description}</p>
+      <ul className="space-y-2">
+        {features.map((feature, i) => (
+          <li key={i} className="flex items-center">
+            <Check size={16} className="text-green-500 flex-shrink-0 mr-2" />
+            <span className="text-gray-700 text-sm">{feature}</span>
+          </li>
+        ))}
+      </ul>
     </div>
-  );
-};
+  </div>
+);
 
 // Testimonial component
 const Testimonial = ({ quote, author, role, avatar }) => (
@@ -857,9 +924,12 @@ function RegisterWithSearchParams() {
   };
 
   const handleContinue = () => {
-    if (selectedType) {
-      router.push(`/register/${selectedType}`);
+    // If startup is selected, don't navigate - it's in development
+    if (selectedType === 'startup') {
+      return;
     }
+    
+    router.push(`/register/${selectedType}`);
   };
 
   const accountTypes = [
@@ -874,14 +944,15 @@ function RegisterWithSearchParams() {
     {
       type: 'startup',
       title: 'Startup',
-      icon: Rocket,
-      description: 'For startups looking to connect with student talent and other startups',
-      features: ['Post job listings', 'Connect with student talent', 'Join startup community'],
-      gradient: 'from-emerald-400 to-emerald-600'
+      icon: Briefcase,
+      description: 'For startups looking to connect with students and university clubs',
+      features: ['Recruit talented students', 'Partner with tech clubs', 'Showcase your startup'],
+      gradient: 'from-green-400 to-green-600',
+      comingSoon: true
     },
     {
       type: 'club',
-      title: 'Tech Club',
+      title: 'University Club',
       icon: Users,
       description: 'For university tech clubs, coding groups, and student organizations',
       features: ['Promote your events', 'Connect with other clubs', 'Recruit members'],
@@ -896,7 +967,7 @@ function RegisterWithSearchParams() {
       role: "Computer Science Student"
     },
     {
-      quote: "We found our technical co-founder through StartupsNet. Game-changer for our startup!",
+      quote: "We found our technical co-founder through Just Ants. Game-changer for our startup!",
       author: "Rahul Mehta",
       role: "Founder, TechSolve"
     },
@@ -927,7 +998,7 @@ function RegisterWithSearchParams() {
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-center tracking-tight mb-6">
             <span className="block">Welcome to</span>
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600">
-              StartupsNet
+              Just Ants
             </span>
           </h1>
           <p className="max-w-2xl mx-auto text-xl text-gray-600 mb-8">
@@ -963,12 +1034,26 @@ function RegisterWithSearchParams() {
           </div>
           
           {/* Continue Button */}
-          <div className="flex justify-center mb-16">
+          <div className="flex flex-col items-center mb-16">
+            {selectedType === 'startup' && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg max-w-lg text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-medium text-amber-800">Startup Registration Coming Soon</span>
+                </div>
+                <p className="text-sm text-amber-700">
+                  Startup onboarding is currently in development and will be released soon. 
+                  Please check back later or register as a student or club for now.
+                </p>
+              </div>
+            )}
             <button
               onClick={handleContinue}
-              disabled={!selectedType}
+              disabled={!selectedType || selectedType === 'startup'}
               className={`flex items-center px-8 py-4 text-lg font-medium rounded-full shadow-lg transition-all duration-300
-                ${selectedType 
+                ${selectedType && selectedType !== 'startup'
                   ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white transform hover:scale-105' 
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
             >
@@ -994,7 +1079,7 @@ function RegisterWithSearchParams() {
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
           <div className="max-w-3xl mx-auto text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-6">Why Join StartupsNet?</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-6">Why Join Just Ants?</h2>
             <p className="text-xl text-indigo-100">Discover the perfect ecosystem for innovation and collaboration</p>
           </div>
           
@@ -1093,11 +1178,31 @@ function RegisterWithSearchParams() {
 export default function RegisterPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 to-white">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="w-32 h-32 bg-indigo-200 rounded-full mb-4"></div>
-          <div className="h-6 w-64 bg-indigo-200 rounded mb-4"></div>
-          <div className="h-4 w-48 bg-indigo-100 rounded"></div>
+      <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white p-6 md:p-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-10 text-center">
+            <div className="h-10 w-64 bg-indigo-200 rounded animate-pulse mx-auto mb-4"></div>
+            <div className="h-6 w-96 max-w-full bg-indigo-100 rounded animate-pulse mx-auto"></div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-white rounded-xl shadow-lg p-6 animate-pulse">
+                <div className="h-12 w-12 bg-indigo-200 rounded-full mb-4"></div>
+                <div className="h-6 w-3/4 bg-indigo-200 rounded mb-3"></div>
+                <div className="space-y-2 mb-4">
+                  <div className="h-4 w-full bg-gray-200 rounded"></div>
+                  <div className="h-4 w-5/6 bg-gray-200 rounded"></div>
+                  <div className="h-4 w-4/6 bg-gray-200 rounded"></div>
+                </div>
+                <div className="h-10 w-full bg-indigo-200 rounded-lg mt-6"></div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-12 flex justify-center">
+            <div className="h-10 w-48 bg-indigo-300 rounded-lg animate-pulse"></div>
+          </div>
         </div>
       </div>
     }>

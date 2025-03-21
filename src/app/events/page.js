@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
-  Calendar, Users, MapPin, Search, TrendingUp, Star, Clock, Building2, 
-  Sparkles, Globe2, Filter, ChevronDown, Share2, MoreHorizontal, 
+  Calendar, Users, MapPin, Search, Star, Clock, 
+  Sparkles, Globe2, Filter, ChevronDown, Share2, 
   CalendarRange, Code, Presentation, Target, Laptop, Megaphone, 
-  Briefcase, UserPlus, Music, Heart, ChevronLeft, ChevronRight, Ticket, Bell 
+  Briefcase, UserPlus, Music, Heart, ChevronLeft, ChevronRight, 
+  Ticket, Bell, Building, School, Coffee, ArrowRight, Plus, BadgeCheck, Tag
 } from 'lucide-react';
+import Navbar from '../components/landing/Navbar';
 
 // Utility function for Haversine distance calculation
 const haversineDistance = (lat1, lon1, lat2, lon2) => {
@@ -22,82 +25,19 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
-// Mock user location (San Francisco)
-const userLocation = { lat: 37.7749, lng: -122.4194 };
+// Function to format date
+const formatDate = (date) => {
+  const options = { month: 'short', day: 'numeric', year: 'numeric' };
+  return new Date(date).toLocaleDateString('en-US', options);
+};
 
-// Mock data generator for events
-const generateMockEvents = () => {
-  const eventTypes = [
-    { type: 'Hackathon', icon: Code },
-    { type: 'Conference', icon: Presentation },
-    { type: 'Symposium', icon: Target },
-    { type: 'Project Expo', icon: Laptop },
-    { type: 'Pitch Event', icon: Megaphone },
-    { type: 'Job Fair', icon: Briefcase },
-    { type: 'Networking', icon: UserPlus },
-    { type: 'Cultural Event', icon: Music },
-    { type: 'Non-Profit', icon: Heart }
-  ];
-
-  const locations = [
-    'San Francisco, CA', 'New York, NY', 'Boston, MA', 'Austin, TX', 
-    'Virtual Event', 'Hybrid - London'
-  ];
-
-  const tags = [
-    'Innovation', 'AI/ML', 'Blockchain', 'Web3', 'Sustainability', 
-    'FinTech', 'Healthcare', 'EdTech', 'Social Impact', 'Networking', 
-    'Career Growth', 'Startup'
-  ];
-
-  const today = new Date();
-  return Array.from({ length: 20 }, (_, i) => {
-    const randomEventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
-    const isVirtual = Math.random() > 0.7;
-    const isHybrid = !isVirtual && Math.random() > 0.8;
-    const mode = isVirtual ? 'Virtual' : isHybrid ? 'Hybrid' : 'In-Person';
-
-    const daysOffset = Math.random() * 90 - 30; // -30 to +60 days
-    const startDate = new Date(today.getTime() + daysOffset * 24 * 60 * 60 * 1000);
-    startDate.setHours(0, 0, 0, 0);
-
-    const isMultiDay = Math.random() < 0.3;
-    const endDate = isMultiDay
-      ? new Date(startDate.getTime() + (Math.floor(Math.random() * 3) + 1) * 24 * 60 * 60 * 1000)
-      : new Date(startDate);
-
-    const isReleased = Math.random() > 0.3;
-
-    return {
-      id: i + 1,
-      title: `${randomEventType.type} - ${['Global', 'Tech', 'Innovation', 'Future'][Math.floor(Math.random() * 4)]} ${randomEventType.type}`,
-      description: `Join us for an exciting ${randomEventType.type.toLowerCase()} focusing on innovation and collaboration.`,
-      startDate,
-      endDate,
-      time: `${Math.floor(Math.random() * 12) + 1}:00 ${Math.random() > 0.5 ? 'AM' : 'PM'} EST`,
-      location: locations[Math.floor(Math.random() * locations.length)],
-      type: randomEventType.type,
-      typeIcon: randomEventType.icon,
-      mode,
-      organizer: ['TechHub', 'StartupNet', 'InnovateNow', 'FutureWorks'][Math.floor(Math.random() * 4)],
-      isSpotlight: Math.random() > 0.8,
-      isTrending: Math.random() > 0.8,
-      isEarlyBird: Math.random() > 0.8,
-      tags: Array.from({ length: Math.floor(Math.random() * 3) + 2 }, () => 
-        tags[Math.floor(Math.random() * tags.length)]
-      ),
-      imageUrl: 'https://cdn.textstudio.com/output/sample/normal/6/3/2/5/event-logo-182-5236.png',
-      price: Math.random() > 0.5 ? 'Free' : `$${Math.floor(Math.random() * 200) + 49}`,
-      attendees: Math.floor(Math.random() * 1000) + 100,
-      maxCapacity: Math.floor(Math.random() * 2000) + 500,
-      lat: 37.7749 + (Math.random() - 0.5) * 0.1, // Around San Francisco
-      lng: -122.4194 + (Math.random() - 0.5) * 0.1,
-      isReleased,
-    };
-  });
+// Function to format time
+const formatTime = (timeString) => {
+  return timeString;
 };
 
 const EventsPage = () => {
+  const router = useRouter();
   const [activeSection, setActiveSection] = useState('all');
   const [events, setEvents] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,13 +49,33 @@ const EventsPage = () => {
     price: [],
     dateRange: { start: null, end: null },
     duration: [],
-    location: false, // Changed to a boolean for simplicity
+    location: false,
   });
   const [locationSettings, setLocationSettings] = useState({
     useDeviceLocation: true,
     radius: 15, // in km
   });
   const [loading, setLoading] = useState(true);
+  const [userType, setUserType] = useState(null);
+  const [eventsCount, setEventsCount] = useState(0);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    type: 'all',
+    mode: 'all',
+    search: '',
+    page: 1,
+    limit: 12,
+    sort: 'startDate',
+    order: 'asc'
+  });
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 12,
+    totalPages: 0,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
 
   const eventsPerPage = 9;
   const sections = [
@@ -123,7 +83,7 @@ const EventsPage = () => {
     { id: 'featured', label: 'Featured', icon: Star },
     { id: 'live', label: 'Live Now', icon: Sparkles },
     { id: 'upcoming', label: 'Upcoming', icon: CalendarRange },
-    { id: 'trending', label: 'Trending', icon: TrendingUp },
+    { id: 'trending', label: 'Trending', icon: Star },
   ];
 
   const filterOptions = {
@@ -131,12 +91,15 @@ const EventsPage = () => {
       { id: 'hackathon', label: 'Hackathon', icon: Code },
       { id: 'conference', label: 'Conference', icon: Presentation },
       { id: 'symposium', label: 'Symposium', icon: Target },
-      { id: 'project-expo', label: 'Project Expo', icon: Laptop },
+      { id: 'workshop', label: 'Workshop', icon: Laptop },
       { id: 'pitch-event', label: 'Pitch Event', icon: Megaphone },
       { id: 'job-fair', label: 'Job Fair', icon: Briefcase },
       { id: 'networking', label: 'Networking', icon: UserPlus },
       { id: 'cultural-event', label: 'Cultural Event', icon: Music },
-      { id: 'non-profit', label: 'Non-Profit', icon: Heart },
+      { id: 'ngo-event', label: 'NGO Event', icon: Heart },
+      { id: 'expert-lecture', label: 'Expert Lecture', icon: Presentation },
+      { id: 'expo', label: 'Expo', icon: Globe2 },
+      { id: 'music-fest', label: 'Music Fest', icon: Music },
     ],
     mode: [
       { id: 'in-person', label: 'In-Person', icon: MapPin },
@@ -157,57 +120,132 @@ const EventsPage = () => {
     ],
   };
 
+  // Get user type from localStorage
   useEffect(() => {
-    setLoading(true);
-    const fetchedEvents = generateMockEvents();
-    setEvents(fetchedEvents);
-    setLoading(false);
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUserType(parsedUser.type);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
   }, []);
+
+  // Fetch events from database
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Build the API URL with filters
+      const params = new URLSearchParams();
+      params.append('page', currentPage);
+      params.append('limit', eventsPerPage);
+      params.append('sort', filters.sort);
+      params.append('order', filters.order);
+      
+      if (filters.type !== 'all') {
+        params.append('type', filters.type);
+      }
+      
+      if (filters.mode !== 'all' && filters.mode.length > 0) {
+        params.append('mode', filters.mode.join(','));
+      }
+      
+      if (filters.search) {
+        params.append('search', filters.search);
+      }
+
+      // Make the API request
+      const response = await fetch(`/api/events/types?${params.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch events');
+      }
+
+      const data = await response.json();
+      setEvents(data.events);
+      setPagination(data.pagination);
+    } catch (err) {
+      console.error('Error fetching events:', err);
+      setError('Failed to load events. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, [currentPage, filters]);
+
+  // Handle filter changes
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1 // Reset to first page when filters change
+    }));
+  };
+
+  // Handle pagination
+  const handlePageChange = (newPage) => {
+    setFilters(prev => ({
+      ...prev,
+      page: newPage
+    }));
+  };
 
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
+      // Skip filtering if no events
+      if (!events.length) return true;
+      
       const now = new Date();
       const start = new Date(event.startDate);
-      const end = new Date(event.endDate);
+      const end = new Date(event.endDate || event.startDate);
       const status = now < start ? 'upcoming' : now > end ? 'past' : 'live';
 
       const matchesSearch = !searchQuery || 
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+        event.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const normalizedType = event.type.toLowerCase().replace(/\s+/g, '-');
+      const normalizedType = event.type?.toLowerCase().replace(/\s+/g, '-') || '';
       const matchesType = !selectedFilters.type.length || 
         selectedFilters.type.includes(normalizedType);
 
       const matchesMode = !selectedFilters.mode.length || 
-        selectedFilters.mode.includes(event.mode.toLowerCase());
+        selectedFilters.mode.includes(event.mode?.toLowerCase() || '');
 
       const matchesPrice = !selectedFilters.price.length || 
-        (selectedFilters.price.includes('free') && event.price === 'Free') ||
-        (selectedFilters.price.includes('paid') && event.price !== 'Free') ||
-        (selectedFilters.price.includes('early-bird') && event.isEarlyBird);
+        (selectedFilters.price.includes('free') && event.isFree) ||
+        (selectedFilters.price.includes('paid') && !event.isFree) ||
+        (selectedFilters.price.includes('early-bird') && event.hasEarlyBird);
 
       const matchesDate = !selectedFilters.dateRange.start || 
         (start >= new Date(selectedFilters.dateRange.start) && 
          (!selectedFilters.dateRange.end || end <= new Date(selectedFilters.dateRange.end)));
 
       const matchesSection = activeSection === 'all' || 
-        (activeSection === 'featured' && event.isSpotlight) || 
+        (activeSection === 'featured' && event.isFeatured) || 
         (activeSection === 'trending' && event.isTrending) || 
         (activeSection === 'live' && status === 'live') || 
         (activeSection === 'upcoming' && status === 'upcoming');
 
-      const isSingleDay = start.getTime() === end.getTime();
+      const isSingleDay = !event.endDate || start.toDateString() === new Date(event.endDate).toDateString();
       const matchesDuration = !selectedFilters.duration.length ||
         (selectedFilters.duration.includes('single-day') && isSingleDay) ||
         (selectedFilters.duration.includes('multi-day') && !isSingleDay);
 
-      const referenceLocation = locationSettings.useDeviceLocation ? userLocation : userLocation; // Mocked for now
+      // Location filtering logic - needs user's location
       const matchesLocation = !selectedFilters.location || 
-        haversineDistance(referenceLocation.lat, referenceLocation.lng, event.lat, event.lng) <= locationSettings.radius;
+        (event.lat && event.lng && locationSettings.radius && 
+         haversineDistance(userLocation.lat, userLocation.lng, event.lat, event.lng) <= locationSettings.radius);
 
-      return matchesSearch && matchesType && matchesMode && matchesPrice && matchesDate && matchesSection && matchesDuration && matchesLocation;
+      return matchesSearch && matchesType && matchesMode && matchesPrice && 
+             matchesDate && matchesSection && matchesDuration && matchesLocation;
     });
   }, [events, searchQuery, selectedFilters, activeSection, locationSettings]);
 
@@ -216,13 +254,6 @@ const EventsPage = () => {
     (currentPage - 1) * eventsPerPage,
     currentPage * eventsPerPage
   );
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
 
   const clearFilters = () => {
     setSelectedFilters({
@@ -244,451 +275,547 @@ const EventsPage = () => {
     }));
   };
 
+  const handleHostEvent = () => {
+    router.push('/host-event');
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+      <Navbar forceLight={true} />
+      
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-indigo-600 to-purple-700 pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 animate-fade-in">
-            Discover & Join Amazing Events
+      <section className="bg-gradient-to-br from-indigo-900 via-blue-800 to-indigo-900 pt-24 pb-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+        {/* Decorative elements similar to landing page */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-indigo-600 rounded-full opacity-20 blur-3xl"></div>
+          <div className="absolute top-1/2 -left-24 w-80 h-80 bg-blue-500 rounded-full opacity-20 blur-3xl"></div>
+          <div className="absolute bottom-0 right-1/3 w-64 h-64 bg-indigo-400 rounded-full opacity-10 blur-3xl"></div>
+          <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:20px_20px]"></div>
+        </div>
+        
+        <div className="relative z-10 max-w-7xl mx-auto text-center">
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
+            Discover <span className="text-blue-300">Amazing Events</span>
           </h1>
-          <p className="text-lg text-indigo-100 mb-8 max-w-2xl">
-            Connect with innovators, showcase your talents, and grow your network in the startup ecosystem.
+          <p className="text-indigo-200 text-lg md:text-xl max-w-3xl mx-auto mb-8">
+            Connect with the community through hackathons, workshops, 
+            conferences, and more - both in-person and virtual.
           </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
-            <Link
-              href="/host-event"
-              className="px-6 py-3 bg-white text-indigo-600 rounded-xl font-semibold hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 whitespace-nowrap focus:ring-2 focus:ring-indigo-300"
-              aria-label="Host an event"
-            >
-              <Calendar className="w-5 h-5" />
-              Host Event
-            </Link>
-
-            <div className="relative flex-1">
-              <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          
+          {/* Search Bar */}
+          <div className="max-w-3xl mx-auto mb-8">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
               <input
                 type="text"
+                className="block w-full pl-10 pr-4 py-3 border-0 rounded-lg bg-white/10 backdrop-blur-sm focus:ring-2 focus:ring-blue-500 placeholder:text-indigo-200 text-white"
+                placeholder="Search events by name, description or keyword"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search events, topics, tags..."
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 text-white placeholder-indigo-200 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
-                aria-label="Search events"
               />
             </div>
           </div>
+          
+          {/* Host Event Button - Only for startups and clubs */}
+          {(userType === 'startup' || userType === 'club') && (
+            <div className="mt-6">
+              <button
+                onClick={handleHostEvent}
+                className="inline-flex items-center px-6 py-3 bg-white text-indigo-700 rounded-lg hover:bg-indigo-50 transition-colors duration-300 text-base font-medium shadow-lg"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Host an Event
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Section Tabs & Filters */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 whitespace-nowrap transition-all duration-200 ${
-                  activeSection === section.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 focus:ring-2 focus:ring-indigo-300'
-                }`}
-                aria-label={`Show ${section.label}`}
-              >
-                <section.icon className="w-4 h-4" />
-                {section.label}
-              </button>
-            ))}
+      {/* Info Section - Only for students */}
+      {userType === 'student' && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 shadow-sm border border-indigo-100">
+            <div className="flex flex-col md:flex-row items-center">
+              <div className="p-3 bg-blue-100 rounded-full mr-4 mb-4 md:mb-0">
+                <BadgeCheck className="h-8 w-8 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Join events to build your profile</h3>
+                <p className="text-gray-600">Participating in events helps you gain experience, network with professionals, and showcase your skills.</p>
+              </div>
+              <div className="mt-4 md:mt-0 md:ml-4">
+                <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                  Learn More
+                </button>
+              </div>
+            </div>
           </div>
+        </section>
+      )}
 
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="px-4 py-2 bg-white rounded-lg font-medium flex items-center gap-2 hover:bg-gray-100 focus:ring-2 focus:ring-indigo-300 transition-all"
-            aria-expanded={showFilters}
-            aria-label="Toggle filters"
-          >
-            <Filter className="w-5 h-5" />
-            Filters
-            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showFilters ? 'rotate-180' : ''}`} />
-          </button>
-        </div>
-
-        {/* Filters Panel */}
-        {showFilters && (
-          <div className="bg-white rounded-xl p-6 mb-8 shadow-sm animate-slide-down">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-              {/* Filters */}
-              {Object.entries(filterOptions).map(([category, options]) => (
-                <div key={category}>
-                  <h3 className="font-semibold text-gray-900 mb-3 capitalize">{category}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {options.map((option) => (
-                      <button
-                        key={option.id}
-                        onClick={() => {
-                          if (category === 'location') {
-                            toggleLocationFilter();
-                          } else {
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Sidebar with Filters */}
+          <div className="lg:w-1/4">
+            <div className="sticky top-24 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-bold text-gray-900">Filters</h2>
+                  <button 
+                    onClick={clearFilters}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-4 space-y-6">
+                {/* Event Type Filter */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Event Type</h3>
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                    {filterOptions.type.map(option => (
+                      <div key={option.id} className="flex items-center">
+                        <input
+                          id={`type-${option.id}`}
+                          name={`type-${option.id}`}
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={selectedFilters.type.includes(option.id)}
+                          onChange={() => {
                             setSelectedFilters(prev => ({
                               ...prev,
-                              [category]: prev[category].includes(option.id)
-                                ? prev[category].filter(id => id !== option.id)
-                                : [...prev[category], option.id]
+                              type: prev.type.includes(option.id)
+                                ? prev.type.filter(id => id !== option.id)
+                                : [...prev.type, option.id]
                             }));
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-lg font-medium text-sm flex items-center gap-1.5 transition-colors duration-200 ${
-                          (category === 'location' ? selectedFilters.location : selectedFilters[category].includes(option.id))
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-2 focus:ring-indigo-300'
-                        }`}
-                        aria-label={`Filter by ${option.label}`}
-                      >
-                        <option.icon className="w-4 h-4" />
-                        {option.label}
-                      </button>
+                          }}
+                        />
+                        <label htmlFor={`type-${option.id}`} className="ml-2 flex items-center text-sm text-gray-700">
+                          <option.icon className="h-4 w-4 mr-1 text-gray-500" />
+                          {option.label}
+                        </label>
+                      </div>
                     ))}
                   </div>
-
-                  {/* Location Settings Sub-Panel */}
-                  {category === 'location' && selectedFilters.location && (
-                    <div className="mt-4 space-y-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            checked={locationSettings.useDeviceLocation}
-                            onChange={() => setLocationSettings(prev => ({ ...prev, useDeviceLocation: true }))}
-                            className="form-radio"
-                          />
-                          Device Location
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            checked={!locationSettings.useDeviceLocation}
-                            onChange={() => setLocationSettings(prev => ({ ...prev, useDeviceLocation: false }))}
-                            className="form-radio"
-                          />
-                          Account Location
-                        </label>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Radius: {locationSettings.radius} km</label>
-                        <input
-                          type="range"
-                          min="5"
-                          max="50"
-                          step="5"
-                          value={locationSettings.radius}
-                          onChange={(e) => setLocationSettings(prev => ({ ...prev, radius: parseInt(e.target.value) }))}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
-              ))}
-
-              {/* Date Range Filter */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Date Range</h3>
-                <div className="space-y-2">
-                  <input
-                    type="date"
-                    value={selectedFilters.dateRange.start || ''}
-                    onChange={(e) => setSelectedFilters(prev => ({
-                      ...prev,
-                      dateRange: { ...prev.dateRange, start: e.target.value || null }
-                    }))}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-300"
-                    aria-label="Start date"
-                  />
-                  <input
-                    type="date"
-                    value={selectedFilters.dateRange.end || ''}
-                    onChange={(e) => setSelectedFilters(prev => ({
-                      ...prev,
-                      dateRange: { ...prev.dateRange, end: e.target.value || null }
-                    }))}
-                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-300"
-                    aria-label="End date"
-                  />
+                
+                {/* Event Mode Filter */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Event Mode</h3>
+                  <div className="space-y-2">
+                    {filterOptions.mode.map(option => (
+                      <div key={option.id} className="flex items-center">
+                        <input
+                          id={`mode-${option.id}`}
+                          name={`mode-${option.id}`}
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={selectedFilters.mode.includes(option.id)}
+                          onChange={() => {
+                            setSelectedFilters(prev => ({
+                              ...prev,
+                              mode: prev.mode.includes(option.id)
+                                ? prev.mode.filter(id => id !== option.id)
+                                : [...prev.mode, option.id]
+                            }));
+                          }}
+                        />
+                        <label htmlFor={`mode-${option.id}`} className="ml-2 flex items-center text-sm text-gray-700">
+                          <option.icon className="h-4 w-4 mr-1 text-gray-500" />
+                          {option.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Price Filter */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Price</h3>
+                  <div className="space-y-2">
+                    {filterOptions.price.map(option => (
+                      <div key={option.id} className="flex items-center">
+                        <input
+                          id={`price-${option.id}`}
+                          name={`price-${option.id}`}
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={selectedFilters.price.includes(option.id)}
+                          onChange={() => {
+                            setSelectedFilters(prev => ({
+                              ...prev,
+                              price: prev.price.includes(option.id)
+                                ? prev.price.filter(id => id !== option.id)
+                                : [...prev.price, option.id]
+                            }));
+                          }}
+                        />
+                        <label htmlFor={`price-${option.id}`} className="ml-2 flex items-center text-sm text-gray-700">
+                          <option.icon className="h-4 w-4 mr-1 text-gray-500" />
+                          {option.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Duration Filter */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Duration</h3>
+                  <div className="space-y-2">
+                    {filterOptions.duration.map(option => (
+                      <div key={option.id} className="flex items-center">
+                        <input
+                          id={`duration-${option.id}`}
+                          name={`duration-${option.id}`}
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={selectedFilters.duration.includes(option.id)}
+                          onChange={() => {
+                            setSelectedFilters(prev => ({
+                              ...prev,
+                              duration: prev.duration.includes(option.id)
+                                ? prev.duration.filter(id => id !== option.id)
+                                : [...prev.duration, option.id]
+                            }));
+                          }}
+                        />
+                        <label htmlFor={`duration-${option.id}`} className="ml-2 flex items-center text-sm text-gray-700">
+                          <option.icon className="h-4 w-4 mr-1 text-gray-500" />
+                          {option.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Date Range Filter */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">Date Range</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="start-date" className="block text-xs text-gray-500 mb-1">Start Date</label>
+                      <input
+                        type="date"
+                        id="start-date"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        value={selectedFilters.dateRange.start || ''}
+                        onChange={(e) => {
+                          setSelectedFilters(prev => ({
+                            ...prev,
+                            dateRange: { ...prev.dateRange, start: e.target.value }
+                          }));
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="end-date" className="block text-xs text-gray-500 mb-1">End Date</label>
+                      <input
+                        type="date"
+                        id="end-date"
+                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        value={selectedFilters.dateRange.end || ''}
+                        onChange={(e) => {
+                          setSelectedFilters(prev => ({
+                            ...prev,
+                            dateRange: { ...prev.dateRange, end: e.target.value }
+                          }));
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <button
-              onClick={clearFilters}
-              className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
-              aria-label="Clear all filters"
-            >
-              Clear Filters
-            </button>
           </div>
-        )}
-
-        {/* Events Grid */}
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">Loading events...</p>
-          </div>
-        ) : currentEvents.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">No events found. Try adjusting your filters or search.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {currentEvents.map((event) => (
-              <EventCard key={event.id} event={event} />
-            ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && !loading && (
-          <div className="flex justify-center items-center gap-2 flex-wrap">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100 hover:bg-gray-50 disabled:hover:bg-white focus:ring-2 focus:ring-indigo-300"
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            {totalPages <= 5 ? (
-              Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
-                    currentPage === page
-                      ? 'bg-indigo-600 text-white'
-                      : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
-                  }`}
-                  aria-label={`Page ${page}`}
-                >
-                  {page}
-                </button>
-              ))
-            ) : (
-              <>
-                <button
-                  onClick={() => handlePageChange(1)}
-                  className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
-                    currentPage === 1
-                      ? 'bg-indigo-600 text-white'
-                      : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
-                  }`}
-                  aria-label="Page 1"
-                >
-                  1
-                </button>
-                {currentPage > 3 && <span className="text-gray-600">...</span>}
-                {Array.from({ length: 3 }, (_, i) => {
-                  const page = currentPage - 1 + i;
-                  return page > 1 && page < totalPages ? (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
-                        currentPage === page
-                          ? 'bg-indigo-600 text-white'
-                          : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
-                      }`}
-                      aria-label={`Page ${page}`}
-                    >
-                      {page}
-                    </button>
-                  ) : null;
-                })}
-                {currentPage < totalPages - 2 && <span className="text-gray-600">...</span>}
-                <button
-                  onClick={() => handlePageChange(totalPages)}
-                  className={`w-10 h-10 rounded-lg font-medium transition-all duration-200 ${
-                    currentPage === totalPages
-                      ? 'bg-indigo-600 text-white'
-                      : 'border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300'
-                  }`}
-                  aria-label={`Page ${totalPages}`}
-                >
-                  {totalPages}
-                </button>
-              </>
+          
+          {/* Main Events Content */}
+          <div className="lg:w-3/4">
+            {/* Category Tabs */}
+            <div className="mb-8 overflow-x-auto hide-scrollbar">
+              <div className="flex space-x-2 pb-2">
+                {sections.map(section => (
+                  <button
+                    key={section.id}
+                    className={`px-4 py-2 rounded-lg flex items-center space-x-2 whitespace-nowrap transition-colors ${
+                      activeSection === section.id
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                    onClick={() => setActiveSection(section.id)}
+                  >
+                    <section.icon className="h-4 w-4" />
+                    <span>{section.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Events Results */}
+            <div>
+              {loading ? (
+                <div className="min-h-[50vh] flex items-center justify-center">
+                  <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                  <p className="text-red-600">{error}</p>
+                </div>
+              ) : currentEvents.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {currentEvents.map(event => (
+                      <EventCard key={event._id} event={event} userType={userType} />
+                    ))}
+                  </div>
+                  
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-8 flex justify-center">
+                      <nav className="flex items-center space-x-2">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className={`p-2 rounded-md border ${
+                            currentPage === 1
+                              ? 'text-gray-400 border-gray-200 cursor-not-allowed'
+                              : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`px-4 py-2 rounded-md ${
+                              currentPage === page
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-gray-700 hover:bg-gray-50 border border-gray-300'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                        
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className={`p-2 rounded-md border ${
+                            currentPage === totalPages
+                              ? 'text-gray-400 border-gray-200 cursor-not-allowed'
+                              : 'text-gray-700 border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                      </nav>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="min-h-[30vh] flex flex-col items-center justify-center bg-white rounded-xl border border-gray-200 p-8">
+                  <Calendar className="h-16 w-16 text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Events Found</h3>
+                  <p className="text-gray-500 text-center max-w-md mb-6">
+                    We couldn't find any events matching your criteria. Try adjusting your filters or search terms.
+                  </p>
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* For Clubs and Startups: Host Event CTA */}
+            {(userType === 'startup' || userType === 'club') && (
+              <div className="mt-10 bg-gradient-to-r from-indigo-600 to-blue-700 rounded-xl p-6 shadow-lg text-white">
+                <div className="flex flex-col md:flex-row items-center">
+                  <div className="mb-4 md:mb-0 md:mr-6">
+                    <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg inline-block">
+                      <CalendarRange className="h-8 w-8 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1 text-center md:text-left mb-4 md:mb-0">
+                    <h3 className="text-xl font-bold mb-1">Ready to Host Your Own Event?</h3>
+                    <p className="text-indigo-100">
+                      Create and manage events to connect with students and grow your network.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleHostEvent}
+                    className="px-6 py-3 bg-white text-indigo-700 hover:bg-indigo-50 transition-colors rounded-lg shadow-md font-medium"
+                  >
+                    Host an Event
+                    <ArrowRight className="h-4 w-4 ml-2 inline" />
+                  </button>
+                </div>
+              </div>
             )}
-
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 disabled:text-gray-400 disabled:border-gray-100 hover:bg-gray-50 disabled:hover:bg-white focus:ring-2 focus:ring-indigo-300"
-              aria-label="Next page"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
           </div>
-        )}
-      </main>
+        </div>
+      </div>
     </div>
   );
 };
 
-const EventCard = ({ event }) => {
-  const now = new Date();
-  const start = new Date(event.startDate);
-  const end = new Date(event.endDate);
-  const status = now < start ? 'upcoming' : now > end ? 'past' : 'live';
-
-  const formatDateRange = (start, end, isReleased) => {
-    if (!isReleased) {
-      return 'Coming Soon';
+// Event Card Component
+const EventCard = ({ event, userType }) => {
+  const router = useRouter();
+  
+  // Format date range or single date
+  const formatDateRange = (start, end) => {
+    const startDate = new Date(start);
+    
+    if (!end || startDate.toDateString() === new Date(end).toDateString()) {
+      return formatDate(startDate);
     }
-    const options = { month: 'short', day: 'numeric', year: 'numeric' };
-    if (start.getTime() === end.getTime()) {
-      return start.toLocaleDateString('en-US', options);
+    
+    return `${formatDate(startDate)} - ${formatDate(end)}`;
+  };
+  
+  // Get event type icon
+  const getEventTypeIcon = (type) => {
+    const eventIcons = {
+      'hackathon': Code,
+      'conference': Presentation,
+      'symposium': Target,
+      'workshop': Laptop,
+      'expo': Globe2,
+      'cultural event': Music,
+      'pitch event': Megaphone,
+      'job fair': Briefcase,
+      'networking': UserPlus,
+      'expert lecture': Presentation,
+      'music fest': Music,
+      'ngo event': Heart,
+    };
+    
+    const normalizedType = type?.toLowerCase() || '';
+    const Icon = eventIcons[normalizedType] || Calendar;
+    return Icon;
+  };
+  
+  // Determine if event is happening now
+  const isLive = () => {
+    const now = new Date();
+    const start = new Date(event.startDate);
+    const end = new Date(event.endDate || event.startDate);
+    return now >= start && now <= end;
+  };
+  
+  // Get organizer icon based on source
+  const getOrganizerIcon = () => {
+    return event.source === 'club' ? School : Building;
+  };
+  
+  const TypeIcon = getEventTypeIcon(event.type);
+  const OrganizerIcon = getOrganizerIcon();
+  
+  const handleJoinEvent = () => {
+    // For students, navigate to join event page
+    if (userType === 'student') {
+      router.push(`/events/${event._id}/join`);
     } else {
-      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', options)}`;
+      // For clubs/startups, just view details
+      router.push(`/events/${event._id}`);
     }
   };
 
-  const TypeIcon = event.typeIcon;
-
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group">
-      <div className="relative">
-        <img
-          src={event.imageUrl}
-          alt={event.title}
-          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-
-        <div className="absolute top-4 right-4 flex flex-row gap-2">
-          {event.isSpotlight && (
-            <span className="px-3 py-1 bg-yellow-400 text-yellow-900 text-sm font-medium rounded-full flex items-center gap-1">
-              <Star className="w-4 h-4" />
-              Featured
-            </span>
-          )}
-          {event.isTrending && (
-            <span className="px-3 py-1 bg-rose-500 text-white text-sm font-medium rounded-full flex items-center gap-1">
-              <TrendingUp className="w-4 h-4" />
-              Trending
-            </span>
-          )}
-          {event.isEarlyBird && (
-            <span className="px-3 py-1 bg-green-500 text-white text-sm font-medium rounded-full flex items-center gap-1">
-              <Clock className="w-4 h-4" />
-              Early Bird
-            </span>
+    <div 
+      className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
+      onClick={handleJoinEvent}
+    >
+      {/* Event Image with Overlay and Type Badge */}
+      <div className="relative h-48 bg-gradient-to-br from-indigo-900 to-blue-700">
+        {event.imageUrl && (
+          <img
+            src={event.imageUrl}
+            alt={event.title}
+            className="w-full h-full object-cover"
+          />
+        )}
+        
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        
+        {/* Type Badge */}
+        <div className="absolute top-3 left-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-indigo-700 flex items-center">
+          <TypeIcon className="w-3 h-3 mr-1" />
+          {event.type || 'Event'}
+        </div>
+        
+        {/* Live Badge */}
+        {isLive() && (
+          <div className="absolute top-3 right-3 px-3 py-1 bg-red-600 rounded-full text-xs font-medium text-white flex items-center">
+            <Sparkles className="w-3 h-3 mr-1" />
+            Live Now
+          </div>
+        )}
+        
+        {/* Price Badge */}
+        <div className="absolute bottom-3 right-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium flex items-center">
+          {event.isFree ? (
+            <span className="text-green-600">Free</span>
+          ) : (
+            <span className="text-indigo-700">{event.price || 'Paid'}</span>
           )}
         </div>
-
-        <div className="absolute bottom-4 left-4 right-4">
-          <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">{event.title}</h3>
-          <p className="text-gray-200 text-sm line-clamp-2">{event.description}</p>
+        
+        {/* Date Badge */}
+        <div className="absolute bottom-3 left-3 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-medium text-gray-700 flex items-center">
+          <Calendar className="w-3 h-3 mr-1" />
+          {formatDateRange(event.startDate, event.endDate)}
         </div>
       </div>
-
-      <div className="p-6">
-        <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-6">
-          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-            <Calendar className="w-4 h-4 text-indigo-600" />
-            {formatDateRange(start, end, event.isReleased)}
-          </span>
-          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-            <MapPin className="w-4 h-4 text-indigo-600" />
-            {event.location}
-          </span>
-          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-            <TypeIcon className="w-4 h-4 text-indigo-600" />
-            {event.type}
-          </span>
-          <span className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
-            <Users className="w-4 h-4 text-indigo-600" />
-            {event.attendees} / {event.maxCapacity}
-          </span>
+      
+      {/* Event Content */}
+      <div className="p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">{event.title}</h3>
+        
+        <div className="flex items-center text-sm text-gray-500 mb-3">
+          <OrganizerIcon className="h-4 w-4 mr-1" />
+          <span>{event.organizer}</span>
         </div>
-
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {event.tags.map((tag, index) => (
-            <span
-              key={`${event.id}-tag-${index}`}
-              className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full hover:bg-gray-200 transition-colors duration-200 cursor-pointer"
-            >
+        
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{event.description}</p>
+        
+        <div className="flex flex-wrap gap-1 mb-4">
+          {event.tags && event.tags.slice(0, 3).map((tag, idx) => (
+            <span key={idx} className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded-full">
               {tag}
             </span>
           ))}
         </div>
-
+        
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {status === 'upcoming' ? (
-              <button
-                onClick={() => alert('Notification set for this event!')}
-                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 transition-all duration-200 flex items-center gap-2"
-                aria-label={`Set notification for ${event.title}`}
-              >
-                <Bell className="w-5 h-5" />
-                Notify
-              </button>
-            ) : (
-              <Link
-                href={`/register-event/${event.id}`}
-                className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 transition-all duration-200 flex items-center gap-2"
-                aria-label={`Register for ${event.title}`}
-              >
-                <Ticket className="w-5 h-5" />
-                Register
-              </Link>
-            )}
-            <button
-              className="p-2.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300 transition-all duration-200"
-              aria-label={`Share ${event.title}`}
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
+          <div className="flex items-center text-sm text-gray-500">
+            <Users className="h-4 w-4 mr-1" />
+            <span>{event.maxAttendees} attendees</span>
           </div>
-
-          <div className="flex items-center gap-3">
-            <span className={`text-sm font-medium ${event.price === 'Free' ? 'text-green-600' : 'text-gray-900'}`}>
-              {event.price}
-            </span>
-            <button
-              className="p-2.5 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300 transition-all duration-200"
-              aria-label="More options"
-            >
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-          </div>
+          
+          <button 
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              userType === 'student' 
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+            }`}
+          >
+            {userType === 'student' ? 'Join Event' : 'View Details'}
+          </button>
         </div>
       </div>
     </div>
   );
 };
-
-/* Custom Tailwind animations */
-const styles = `
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes slide-down {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .animate-fade-in {
-    animation: fade-in 0.5s ease-out;
-  }
-  .animate-slide-down {
-    animation: slide-down 0.3s ease-out;
-  }
-`;
-
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = styles;
-  document.head.appendChild(styleSheet);
-}
 
 export default EventsPage;

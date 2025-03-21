@@ -16,7 +16,8 @@ import {
   Bell
 } from 'lucide-react';
 
-export default function RegistrationSuccessContent() {
+// Inner component that uses searchParams
+function SuccessContent() {
   const searchParams = useSearchParams();
   const [accountType, setAccountType] = useState('');
   const [countdown, setCountdown] = useState(15);
@@ -266,4 +267,9 @@ export default function RegistrationSuccessContent() {
       </div>
     </div>
   );
+}
+
+// Main component that wraps SuccessContent
+export default function RegistrationSuccessContent() {
+  return <SuccessContent />;
 } 
