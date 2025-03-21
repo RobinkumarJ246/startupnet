@@ -4,6 +4,53 @@ import bcryptjs from 'bcryptjs';
 import * as jose from 'jose';
 import { setAuthCookie } from '../../../lib/auth/token';
 
+/**
+ * Helper function to ensure all required fields are present based on user type
+ */
+function addMissingFields(userData) {
+  if (!userData) return userData;
+
+  // Make a copy to avoid modifying the original object
+  const enhancedUser = { ...userData };
+  
+  // If we have a plain object from MongoDB, convert _id to string if needed
+  if (enhancedUser._id && typeof enhancedUser._id !== 'string' && enhancedUser._id.toString) {
+    enhancedUser._id = enhancedUser._id.toString();
+  }
+  
+  // Standardize user type fields
+  if (!enhancedUser.userType && enhancedUser.type) {
+    enhancedUser.userType = enhancedUser.type;
+  } else if (!enhancedUser.type && enhancedUser.userType) {
+    enhancedUser.type = enhancedUser.userType;
+  }
+  
+  // Ensure all user types have their required display name fields
+  const userType = enhancedUser.type || enhancedUser.userType;
+  
+  if (userType === 'club' && !enhancedUser.clubName && enhancedUser.name) {
+    console.log('Login API: Fixing missing clubName field for club user');
+    enhancedUser.clubName = enhancedUser.name;
+  } else if (userType === 'student' && !enhancedUser.fullName && enhancedUser.name) {
+    console.log('Login API: Fixing missing fullName field for student user');
+    enhancedUser.fullName = enhancedUser.name;
+  } else if (userType === 'startup' && !enhancedUser.companyName && enhancedUser.name) {
+    console.log('Login API: Fixing missing companyName field for startup user');
+    enhancedUser.companyName = enhancedUser.name;
+  }
+  
+  console.log('Login API: Enhanced user data:', {
+    id: enhancedUser._id,
+    type: enhancedUser.type,
+    name: enhancedUser.name,
+    clubName: enhancedUser.clubName,
+    fullName: enhancedUser.fullName,
+    companyName: enhancedUser.companyName
+  });
+  
+  return enhancedUser;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -55,7 +102,26 @@ export async function POST(request) {
     // Find user by email
     let user;
     try {
+      // Add debug logging for club users
+      if (userType === 'club') {
+        console.log('Looking up club user by email:', email);
+      }
+      
       user = await collection.findOne({ email });
+      
+      // For club users, log all fields to debug what data is coming from MongoDB
+      if (userType === 'club' && user) {
+        console.log('Club user found in database. Raw data:', {
+          _id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+          clubName: user.clubName,
+          fullName: user.fullName,
+          // Log all fields for debugging
+          allFields: Object.keys(user)
+        });
+      }
+      
       console.log(user ? 'User found' : 'User not found');
     } catch (findError) {
       console.error('Error finding user:', findError);
@@ -129,15 +195,35 @@ export async function POST(request) {
     const userData = {
       _id: user._id.toString(),
       email: user.email,
-      userType,
-      name: user.fullName || user.companyName || user.clubName,
-      // Add other user fields as needed
+      type: userType,
+      userType: userType
     };
+    
+    // Copy all fields from the original user object, except password
+    Object.keys(user).forEach(key => {
+      if (key !== 'password' && key !== '_id' && key !== 'email' && key !== 'type' && key !== 'userType') {
+        userData[key] = user[key];
+      }
+    });
+    
+    // Important debug info
+    console.log('Login API - Original user data from DB:', {
+      id: user._id.toString(),
+      type: userType,
+      name: user.name,
+      clubName: user.clubName,
+      fullName: user.fullName,
+      companyName: user.companyName,
+      email: user.email
+    });
+    
+    // Ensure all required fields are present based on user type
+    const enhancedUser = addMissingFields(userData);
     
     // Create the response
     const response = NextResponse.json({
       success: true,
-      user: userData
+      user: enhancedUser
     });
     
     // Set the auth cookie with proper settings for dev/prod environments

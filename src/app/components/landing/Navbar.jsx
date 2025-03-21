@@ -19,10 +19,8 @@ export default function Navbar({ forceLight = false }) {
   useEffect(() => {
     // Get user data from localStorage for immediate display
     try {
-      const cachedUser = localStorage.getItem('user');
-      if (cachedUser) {
-        setInitialUser(JSON.parse(cachedUser));
-      }
+      console.log('Navbar initialization - attempting to load from localStorage');
+      refreshUserFromLocalStorage();
     } catch (error) {
       console.error('Error reading user from localStorage:', error);
     }
@@ -34,6 +32,90 @@ export default function Navbar({ forceLight = false }) {
     
     return () => clearTimeout(timer);
   }, []);
+  
+  // Function to refresh user data from localStorage
+  const refreshUserFromLocalStorage = () => {
+    try {
+      console.log('Refreshing user data from localStorage in Navbar');
+      const cachedUser = localStorage.getItem('user');
+      
+      if (cachedUser) {
+        try {
+          const parsedUser = JSON.parse(cachedUser);
+          // Validate that we have a proper user object
+          if (parsedUser && typeof parsedUser === 'object') {
+            console.log('Found user in localStorage with type:', parsedUser.type || parsedUser.userType || 'unknown');
+            
+            // Debug info for club or student
+            if (parsedUser.type === 'club' || parsedUser.userType === 'club') {
+              // Try to find the real club name - there's a problem where it's sometimes the contact person's name
+              console.log('Club data found. Raw data:', {
+                id: parsedUser._id,
+                name: parsedUser.name,
+                clubName: parsedUser.clubName,
+                type: parsedUser.type
+              });
+              
+              // Log what name we'll actually use
+              const displayName = parsedUser.clubName || parsedUser.name || 'unknown';
+              console.log('Club display name will be:', displayName);
+            } else if (parsedUser.type === 'student' || parsedUser.userType === 'student') {
+              console.log('Student data found. Name:', parsedUser.fullName || parsedUser.name || 'unknown');
+            }
+            
+            // Set the user
+            setInitialUser(parsedUser);
+            setAuthLoading(false);
+          } else {
+            console.warn('Invalid user data in localStorage');
+            setInitialUser(null);
+            setAuthLoading(false);
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+          setInitialUser(null);
+          setAuthLoading(false);
+        }
+      } else {
+        console.log('No user found in localStorage');
+        setInitialUser(null);
+        setAuthLoading(false);
+      }
+    } catch (error) {
+      console.error('Error accessing localStorage:', error);
+      setInitialUser(null);
+      setAuthLoading(false);
+    }
+  };
+  
+  // Update localStorage user when actual auth user changes
+  useEffect(() => {
+    console.log('Auth user changed in Navbar:', user ? 
+        (user.type || user.userType || 'unknown type') : 'null or undefined');
+        
+    if (user !== undefined) {
+      // If we have a definitive user state from auth context, use it
+      if (user === null) {
+        // User explicitly logged out
+        console.log('User logged out, clearing local navbar state');
+        setInitialUser(null);
+      } else {
+        // User logged in - log details for debugging
+        if (user.type === 'club' || user.userType === 'club') {
+          console.log('Navbar received club user. Name:', user.clubName || user.name || 'unknown');
+        } else if (user.type === 'student' || user.userType === 'student') {
+          console.log('Navbar received student user. Name:', user.fullName || user.name || 'unknown');
+        }
+        
+        // Set the user and force a refresh from localStorage if needed
+        setInitialUser(user);
+        
+        // Double check with localStorage to ensure consistency
+        setTimeout(() => refreshUserFromLocalStorage(), 300);
+      }
+      setAuthLoading(false);
+    }
+  }, [user]);
   
   // Update auth loading state whenever user changes
   useEffect(() => {
@@ -79,26 +161,71 @@ export default function Navbar({ forceLight = false }) {
   // Handle logout functionality
   const handleLogout = async () => {
     try {
+      console.log('Navbar: Initiating logout');
+      // Clear local user state immediately for better UX
+      setInitialUser(null);
       await logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout error in navbar:', error);
+      // Force clear local state even if API fails
+      setInitialUser(null);
     }
   };
 
   // Get display name based on user type
-  const getDisplayName = () => {
-    const userToUse = user || initialUser;
-    if (!userToUse) return '';
+  const getDisplayName = (user) => {
+    if (!user) {
+      console.log('getDisplayName: No user provided');
+      return 'User';
+    }
+
+    // Debug log all the relevant fields
+    console.log('getDisplayName: User fields:', {
+      id: user._id || user.id,
+      type: user.type || user.userType,
+      name: user.name,
+      clubName: user.clubName,
+      fullName: user.fullName,
+      companyName: user.companyName
+    });
+
+    const userType = user.type || user.userType;
     
-    if (userToUse.type === 'club' && userToUse.clubName) {
-      return userToUse.clubName;
+    // For club users, prioritize clubName over contact person name
+    if (userType === 'club') {
+      if (user.clubName) {
+        console.log(`Club user display name: ${user.clubName}`);
+        return user.clubName;
+      } else if (user.name) {
+        console.warn('Club user missing clubName, falling back to name:', user.name);
+        return user.name;
+      }
     }
     
-    if (userToUse.type === 'startup' && userToUse.companyName) {
-      return userToUse.companyName;
+    // For startup users, prioritize companyName
+    if (userType === 'startup') {
+      if (user.companyName) {
+        console.log(`Startup user display name: ${user.companyName}`);
+        return user.companyName;
+      } else if (user.name) {
+        console.warn('Startup user missing companyName, falling back to name:', user.name);
+        return user.name;
+      }
     }
     
-    return userToUse.name || '';
+    // For student users, prioritize fullName
+    if (userType === 'student') {
+      if (user.fullName) {
+        console.log(`Student user display name: ${user.fullName}`);
+        return user.fullName;
+      } else if (user.name) {
+        console.warn('Student user missing fullName, falling back to name:', user.name);
+        return user.name;
+      }
+    }
+    
+    // Last resort fallback - use any available name field
+    return user.fullName || user.clubName || user.companyName || user.name || 'User';
   };
 
   // Calculate if we should show light mode (white background) elements
@@ -218,7 +345,7 @@ export default function Navbar({ forceLight = false }) {
                     onMouseLeave={() => handleDropdownLeave('profile')}
                   >
                     <User className="h-4 w-4 mr-1" />
-                    {getDisplayName()}
+                    {getDisplayName(displayUser)}
                     <ChevronDown className="ml-1 h-4 w-4" />
                   </button>
                   {activeDropdown === 'profile' && (
@@ -367,7 +494,7 @@ export default function Navbar({ forceLight = false }) {
                 <div className="px-3 py-2 font-medium text-indigo-600">
                   <span className="flex items-center">
                     <User className="h-5 w-5 mr-2" />
-                    {getDisplayName()}
+                    {getDisplayName(displayUser)}
                   </span>
                 </div>
                 <Link 

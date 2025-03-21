@@ -21,20 +21,20 @@ export async function connectToDatabase() {
   // Set the connection options with improved SSL settings
   const opts = {
     useUnifiedTopology: true,
-    // Don't use both tlsInsecure and tlsAllowInvalidCertificates together
     tls: true,
     tlsAllowInvalidCertificates: process.env.NODE_ENV === 'development', // Allow invalid certs only in development
     retryWrites: true,
-    connectTimeoutMS: 30000, // Increase timeout to 30 seconds
-    socketTimeoutMS: 45000,  // Increase socket timeout
+    connectTimeoutMS: 60000, // Increased from 30000 to 60000
+    socketTimeoutMS: 90000,  // Increased from 45000 to 90000
     maxIdleTimeMS: 120000,   // Connection pool idle time
-    maxPoolSize: 10,         // Limit connection pool size
-    minPoolSize: 5,          // Minimum connections to keep open
+    maxPoolSize: 5,          // Reduced from 10 to 5 for better stability
+    minPoolSize: 1,          // Reduced from 5 to 1
+    serverSelectionTimeoutMS: 60000, // Added explicit server selection timeout
   };
 
   try {
-    // Connect to the server
-    const client = await MongoClient.connect(MONGODB_URI, opts);
+    // Connect to the server with retry logic
+    const client = await tryConnect(MONGODB_URI, opts);
     const db = client.db(MONGODB_DB);
 
     // Cache the client and db connections
@@ -60,16 +60,34 @@ export async function connectDB() {
   }
 }
 
+// Helper function to retry connection with exponential backoff
+async function tryConnect(uri, options, retries = 3, backoff = 1000) {
+  try {
+    return await MongoClient.connect(uri, options);
+  } catch (err) {
+    if (retries <= 0) {
+      console.error('MongoDB connection failed after multiple attempts');
+      throw err;
+    }
+    
+    console.log(`Connection attempt failed, retrying in ${backoff}ms...`);
+    await new Promise(resolve => setTimeout(resolve, backoff));
+    
+    return tryConnect(uri, options, retries - 1, backoff * 2);
+  }
+}
+
 // For backward compatibility with code that uses clientPromise
 const clientPromiseOpts = {
   useUnifiedTopology: true,
   tls: true,
   tlsAllowInvalidCertificates: process.env.NODE_ENV === 'development',
   retryWrites: true,
-  connectTimeoutMS: 30000,
-  socketTimeoutMS: 45000,
-  maxPoolSize: 10,
-  minPoolSize: 5,
+  connectTimeoutMS: 60000, // Increased from 30000 to 60000
+  socketTimeoutMS: 90000,  // Increased from 45000 to 90000
+  maxPoolSize: 5,          // Reduced from 10 to 5
+  minPoolSize: 1,          // Reduced minimum pool size
+  serverSelectionTimeoutMS: 60000, // Added explicit server selection timeout
 };
 
 // Export clientPromise as default for backward compatibility

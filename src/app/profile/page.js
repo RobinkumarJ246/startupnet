@@ -32,7 +32,9 @@ import {
   Edit,
   BookOpen,
   Clock,
-  Check
+  Check,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import Navbar from '../components/landing/Navbar';
 import EditProfileModal from '../components/profile/EditProfileModal';
@@ -40,6 +42,7 @@ import ProfileHeader from '../components/profile/ProfileHeader';
 import { useAuth } from '../lib/auth/AuthContext';
 import { ProfileSkeleton } from '../components/shared/SkeletonLoader';
 import AccountSettingsModal from '../components/profile/AccountSettingsModal';
+import { FaUserCircle, FaEdit, FaCog, FaShare } from 'react-icons/fa';
 
 // About Section
 function AboutSection({ user }) {
@@ -535,11 +538,12 @@ function ActivitySection() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('about');
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [error, setError] = useState('');
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const { user, loading: authLoading, refreshUser, logout, forceRefresh, resetAppState } = useAuth();
   const [notification, setNotification] = useState('');
   const [showNotification, setShowNotification] = useState(false);
   const [showAccountSettingsModal, setShowAccountSettingsModal] = useState(false);
@@ -549,100 +553,104 @@ export default function ProfilePage() {
   const [isCopying, setIsCopying] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [showWrongUserData, setShowWrongUserData] = useState(false);
+  const [dbConnectionError, setDbConnectionError] = useState(false);
+
+  // Use effect to load user data
+  useEffect(() => {
+    loadUserData();
+  }, [user, router]);
+
+  // Load user data from auth context or localStorage
+  const loadUserData = () => {
+    console.log('Loading user data for profile page');
+    try {
+      // Check if we have a stored connection error
+      if (typeof window !== 'undefined' && localStorage.getItem('dbConnectionError')) {
+        console.log('Database connection error detected from localStorage');
+        setDbConnectionError(true);
+      }
+      
+      // Get user from auth context first
+      if (user) {
+        console.log('Using auth context user data', user);
+        setUserData(user);
+        setLoading(false);
+        return;
+      }
+      
+      // Fall back to localStorage if auth context is not available
+      if (typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          console.log('Using localStorage user data', parsedUser);
+          setUserData(parsedUser);
+        } else {
+          // No user data in localStorage, redirect to login
+          console.log('No user data found, redirecting to login');
+          router.push('/login');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add force refresh handler to completely reload all user data
+  const handleForceRefresh = async () => {
+    setLoading(true);
+    try {
+      const success = await forceRefresh();
+      if (success) {
+        setShowWrongUserData(false);
+        showStatusNotification('Account data refreshed successfully!');
+      } else {
+        // If server validation fails, force reload
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Force refresh error:', error);
+      showStatusNotification('Failed to refresh account data. Try logging out and back in.', true);
+      // Force reload as last resort
+      window.location.reload();
+    } finally {
+      setLoading(false);
+    }
+  };
   
-  const { logout, validateSession } = useAuth();
+  // Add refresh user handler to reload data when needed
+  const handleRefreshUser = async () => {
+    setLoading(true);
+    try {
+      const success = await refreshUser();
+      if (!success) {
+        // Try force refresh as a fallback
+        await handleForceRefresh();
+      } else {
+        setShowWrongUserData(false);
+        showStatusNotification('User data refreshed!');
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      showStatusNotification('Failed to refresh user data. Please try again later.', true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Show notification with auto-dismiss
   const showStatusNotification = (message, isError = false) => {
     setNotification(message);
     setShowNotification(true);
-    setError(isError ? message : '');
     
     // Auto dismiss after 5 seconds
     setTimeout(() => {
       setShowNotification(false);
     }, 5000);
   };
-
-  const loadUserProfile = async () => {
-    console.log("Loading user profile...");
-    setLoading(true);
-    setConnectionError(false);
-    
-    try {
-      // Get the user data from localStorage first for faster UI display
-      const userData = localStorage.getItem('user');
-      if (!userData) {
-        console.log("No user data in localStorage, redirecting to login");
-        router.push('/login');
-        return;
-      }
-      
-      // Parse and display the user data we have
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
-      
-      // Then try to validate session in the background
-      try {
-        console.log("Validating session...");
-        const isValid = await validateSession();
-        console.log("Session validation result:", isValid);
-        
-        // If validation completely fails, we still have the localStorage data
-        // So the user can continue using the app with limited functionality
-      } catch (error) {
-        console.error("Session validation error:", error);
-        // Check if it's a MongoDB connection error
-        if (error.message && 
-            (error.message.includes('MongoDB connection error') || 
-             error.message.includes('MongoNetworkError') ||
-             error.message.includes('ECONNREFUSED') ||
-             error.message.includes('certificate') ||
-             error.message.includes('SSL'))) {
-          setConnectionError(true);
-          showStatusNotification("Database connection error. Some features may be limited.", true);
-        }
-        // Don't redirect on validation error - we already have the localStorage data
-      }
-      
-      try {
-        // Try to fetch the profile image
-        console.log("Fetching profile image...");
-        const imageResponse = await fetch(`/api/profile/image/${parsedUser.id}`);
-        
-        if (imageResponse.ok) {
-          const imageUrl = `/api/profile/image/${parsedUser.id}`;
-          
-          // Update the user object with the image URL
-          setUser(prevUser => ({
-            ...prevUser,
-            profileImageUrl: imageUrl
-          }));
-        }
-      } catch (error) {
-        console.error('Failed to fetch profile image:', error);
-        // Continue without the image
-      }
-    } catch (error) {
-      console.error('Error loading profile:', error);
-      if (error.message && 
-          (error.message.includes('MongoDB connection error') || 
-           error.message.includes('MongoNetworkError') ||
-           error.message.includes('ECONNREFUSED') ||
-           error.message.includes('certificate') ||
-           error.message.includes('SSL'))) {
-        setConnectionError(true);
-        setError('Database connection error. Please try again later.');
-      } else {
-        router.push('/login');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-  useEffect(() => {
-    loadUserProfile();
-  }, [router]);
 
   const handleLogout = async () => {
     try {
@@ -677,7 +685,7 @@ export default function ProfilePage() {
       
       // Store and set the updated user data directly
       const processedUser = {...data.user};
-      setUser(processedUser);
+      setUserData(processedUser);
       localStorage.setItem('user', JSON.stringify(processedUser));
       
       // Show success notification
@@ -690,7 +698,7 @@ export default function ProfilePage() {
   };
 
   const handleEditProfile = () => {
-    setIsEditModalOpen(true);
+    setShowEditProfileModal(true);
   };
 
   // Handle account deletion
@@ -729,6 +737,41 @@ export default function ProfilePage() {
     }
   };
 
+  // Add force reset state handler to completely reload the app
+  const handleResetAppState = async () => {
+    if (confirm("This will completely reset the app state and log you out. You'll need to log back in. Continue?")) {
+      setLoading(true);
+      try {
+        showStatusNotification('Resetting app state...');
+        await resetAppState();
+      } catch (error) {
+        console.error('Error resetting app state:', error);
+        // Force reload as last resort
+        window.location.href = '/';
+      }
+    }
+  };
+
+  // Deep refresh data from server
+  const handleDeepRefresh = async () => {
+    setLoading(true);
+    setDbConnectionError(false);
+    try {
+      const success = await refreshUser();
+      if (success) {
+        console.log('User data refreshed successfully');
+        // Force a full page reload to ensure all components update
+        window.location.reload();
+      } else {
+        console.log('Failed to refresh user data');
+      }
+    } catch (error) {
+      console.error('Error during deep refresh:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -759,7 +802,7 @@ export default function ProfilePage() {
               </p>
               <div className="flex justify-center space-x-4">
                 <button
-                  onClick={() => loadUserProfile()}
+                  onClick={() => handleRefreshUser()}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
                 >
                   Retry Connection
@@ -781,7 +824,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (!user) {
+  if (!userData) {
     return null;
   }
 
@@ -806,129 +849,103 @@ export default function ProfilePage() {
         </div>
       )}
       
+      {showWrongUserData && (
+        <div className="fixed inset-x-0 top-20 z-50 flex justify-center items-center px-4">
+          <div className="max-w-md w-full bg-yellow-50 border border-yellow-300 rounded-lg shadow-lg p-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm text-yellow-700">
+                  Profile data might be incorrect or incomplete. Try refreshing your data.
+                </p>
+              </div>
+              <div className="ml-auto pl-3 flex">
+                <button
+                  onClick={handleForceRefresh}
+                  className="px-3 py-1 text-xs font-medium rounded-md bg-yellow-100 text-yellow-800 hover:bg-yellow-200 mr-1"
+                >
+                  Fix
+                </button>
+                <button
+                  onClick={handleResetAppState}
+                  className="px-3 py-1 text-xs font-medium rounded-md bg-red-100 text-red-800 hover:bg-red-200 mr-1"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => setShowWrongUserData(false)}
+                  className="text-yellow-500 hover:text-yellow-600"
+                >
+                  <span className="sr-only">Dismiss</span>
+                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-8">
+          {dbConnectionError && (
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-center">
+              <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
+                <AlertCircle className="h-5 w-5 text-yellow-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-yellow-700 font-medium">Offline Mode</p>
+                <p className="text-sm text-yellow-600">
+                  We're having trouble connecting to our database. 
+                  Your profile is being displayed from locally cached data which may be outdated.
+                </p>
+              </div>
+              <button 
+                onClick={handleDeepRefresh}
+                className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm inline-flex items-center hover:bg-yellow-200"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Try Again
+              </button>
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-            <div className="flex space-x-2">
-              {user.type === 'student' && isCurrentUser && (
-                <>
-                  <div className="mt-4 mb-2 sm:mt-0 sm:mb-0 flex flex-wrap justify-end gap-2">
-                    <button
-                      onClick={handleShareProfile}
-                      disabled={isCopying}
-                      className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md flex items-center hover:bg-gray-200 transition"
-                    >
-                      {isCopying ? (
-                        <span className="mr-2 h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <Share2 className="mr-2 h-4 w-4" />
-                      )}
-                      {isCopying ? 'Copying...' : copySuccess ? 'Link Copied!' : 'Share Profile'}
-                    </button>
-                    
-                    <button
-                      onClick={() => setIsEditModalOpen(true)}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
-                    >
-                      Edit Profile
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowAccountSettingsModal(true)}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
-                    >
-                      Account Settings
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowLogoutModal(true)}
-                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                </>
+            <div className="flex space-x-3">
+              {userData && userData.type === 'student' && (
+                <button
+                  onClick={handleShareProfile}
+                  className="px-4 py-2 text-indigo-600 bg-indigo-50 rounded-lg flex items-center hover:bg-indigo-100 transition-colors"
+                >
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Share Profile
+                </button>
               )}
-              {user.type === 'startup' && isCurrentUser && (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleShareProfile}
-                      disabled={isCopying}
-                      className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md flex items-center hover:bg-gray-200 transition"
-                    >
-                      {isCopying ? (
-                        <span className="mr-2 h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <Share2 className="mr-2 h-4 w-4" />
-                      )}
-                      {isCopying ? 'Copying...' : copySuccess ? 'Link Copied!' : 'Share Profile'}
-                    </button>
-                    
-                    <button
-                      onClick={() => setIsEditModalOpen(true)}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
-                    >
-                      Edit Profile
-                    </button>
-                    <button
-                      onClick={() => setShowAccountSettingsModal(true)}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
-                    >
-                      Account Settings
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                </>
-              )}
-              {user.type === 'club' && isCurrentUser && (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleShareProfile}
-                      disabled={isCopying}
-                      className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md flex items-center hover:bg-gray-200 transition"
-                    >
-                      {isCopying ? (
-                        <span className="mr-2 h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></span>
-                      ) : (
-                        <Share2 className="mr-2 h-4 w-4" />
-                      )}
-                      {isCopying ? 'Copying...' : copySuccess ? 'Link Copied!' : 'Share Profile'}
-                    </button>
-                    
-                    <button
-                      onClick={() => setIsEditModalOpen(true)}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
-                    >
-                      Edit Profile
-                    </button>
-                    <button
-                      onClick={() => setShowAccountSettingsModal(true)}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition"
-                    >
-                      Account Settings
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                </>
-              )}
+              <button
+                onClick={handleDeepRefresh}
+                className="px-4 py-2 text-amber-600 bg-amber-50 rounded-lg flex items-center hover:bg-amber-100 transition-colors"
+              >
+                <Clock className="h-4 w-4 mr-2" />
+                Deep Refresh
+              </button>
+              <button
+                onClick={handleEditProfile}
+                className="px-4 py-2 text-white bg-indigo-600 rounded-lg flex items-center hover:bg-indigo-700 transition-colors"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Profile
+              </button>
             </div>
           </div>
           
           {/* Profile Header Component */}
-          <ProfileHeader user={user} onEditClick={handleEditProfile} />
+          <ProfileHeader user={userData} onEditClick={handleEditProfile} />
 
           {/* Tabs Navigation */}
           <div className="bg-white mb-8 rounded-xl overflow-hidden shadow">
@@ -979,7 +996,7 @@ export default function ProfilePage() {
             
             {/* Tab Content */}
             <div className="p-6">
-              {activeTab === 'about' && <AboutSection user={user} />}
+              {activeTab === 'about' && <AboutSection user={userData} />}
               {activeTab === 'achievements' && <AchievementsSection />}
               {activeTab === 'connections' && <ConnectionsSection />}
               {activeTab === 'activity' && <ActivitySection />}
@@ -990,9 +1007,9 @@ export default function ProfilePage() {
 
       {/* Edit Profile Modal */}
       <EditProfileModal 
-        isOpen={isEditModalOpen} 
-        onClose={() => setIsEditModalOpen(false)} 
-        user={user}
+        isOpen={showEditProfileModal} 
+        onClose={() => setShowEditProfileModal(false)} 
+        user={userData}
         onSave={handleProfileUpdate}
       />
       

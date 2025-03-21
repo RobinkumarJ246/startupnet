@@ -345,12 +345,46 @@ export default function ProfileHeader({ user, onEditClick }) {
   const hasSkills = skillsList.length > 0;
 
   // Check if user has a profile picture - Check multiple possible field names
-  const hasProfilePic =user.profileImageUrl || user.profileImage || user.profilePicture || user.avatar || user.logo;
+  // Added more robust check to handle different ways the profile image might be stored
+  const profilePicFields = [
+    'profileImageUrl', 'profileImage', 'profilePicture', 
+    'avatar', 'logo', 'image', 'picture', 'photo'
+  ];
+
+  // Check each possible field
+  let hasProfilePic = false;
+  for (const field of profilePicFields) {
+    if (user[field] && user[field] !== 'null' && user[field] !== 'undefined') {
+      hasProfilePic = true;
+      console.log(`Found profile image in field: ${field} = ${user[field]}`);
+      break;
+    }
+  }
+
+  // For user types Student and Club, always assume profile pic exists if they have an ID
+  // This is necessary because sometimes the image field isn't properly set even though the image exists
+  if (!hasProfilePic && (user.type === 'student' || user.type === 'club') && (user._id || user.id)) {
+    console.log(`No profile pic field found, but forcing for ${user.type} user`);
+    hasProfilePic = true;
+  }
+
+  // Use _id instead of id for MongoDB documents
   const profilePicUrl = hasProfilePic 
-    ? `/api/profile/image/${user.id}`
+    ? `/api/profile/image/${user._id || user.id}`
     : null;
     
-  console.log('Profile pic data:', { hasProfilePic, userId: user.id });
+  console.log('Profile pic data:', { 
+    hasProfilePic, 
+    userId: user._id || user.id, 
+    userType: user.type,
+    fields: { 
+      profileImage: !!user.profileImage, 
+      profileImageUrl: !!user.profileImageUrl,
+      profilePicture: !!user.profilePicture,
+      avatar: !!user.avatar,
+      logo: !!user.logo
+    }
+  });
 
   return (
     <div className="bg-white shadow rounded-xl overflow-hidden mb-8">

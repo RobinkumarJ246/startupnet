@@ -148,4 +148,92 @@ export function setAuthCookie(response, token) {
 export function clearAuthCookie(response) {
   response.cookies.delete('token');
   return response;
+}
+
+// Get token data directly from cookies without verification
+export function getTokenDataFromCookies() {
+  // Only run on client side
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  try {
+    // Get the token from cookies - try both possible cookie names
+    const tokenCookieNames = ['token', 'auth-token'];
+    let token = null;
+    
+    for (const cookieName of tokenCookieNames) {
+      const found = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(`${cookieName}=`))
+        ?.split('=')[1];
+      
+      if (found) {
+        token = found;
+        console.log(`Found token in cookie: ${cookieName}`);
+        break;
+      }
+    }
+    
+    // If no token was found in cookies, try localStorage as fallback
+    if (!token && localStorage.getItem('user')) {
+      console.log('No token found in cookies, using localStorage user data instead');
+      const userData = JSON.parse(localStorage.getItem('user'));
+      return {
+        _id: userData._id || userData.id,
+        email: userData.email || '',
+        type: userData.type || userData.userType,
+        userType: userData.userType || userData.type,
+        name: userData.name || userData.fullName || userData.clubName || userData.companyName || '',
+        fullName: userData.fullName || userData.name || '',
+        clubName: userData.clubName || userData.name || '',
+        companyName: userData.companyName || userData.name || ''
+      };
+    }
+    
+    if (!token) {
+      console.log('No auth token found in cookies or localStorage');
+      return null;
+    }
+    
+    // Decode the token payload (second part) without verification
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    
+    // Create a user object from token data
+    return {
+      _id: payload.userId || payload._id,
+      email: payload.email || '',
+      type: payload.userType || payload.type,
+      userType: payload.userType || payload.type,
+      name: payload.name || '',
+      fullName: payload.fullName || payload.name || '',
+      clubName: payload.clubName || payload.name || '',
+      companyName: payload.companyName || payload.name || ''
+    };
+  } catch (error) {
+    console.error('Error getting token data from cookies:', error);
+    
+    // If there was an error decoding the token but we have user data in localStorage,
+    // return that as a fallback
+    try {
+      if (localStorage.getItem('user')) {
+        console.log('Token decode error, using localStorage user data instead');
+        const userData = JSON.parse(localStorage.getItem('user'));
+        return {
+          _id: userData._id || userData.id,
+          email: userData.email || '',
+          type: userData.type || userData.userType,
+          userType: userData.userType || userData.type,
+          name: userData.name || userData.fullName || userData.clubName || userData.companyName || '',
+          fullName: userData.fullName || userData.name || '',
+          clubName: userData.clubName || userData.name || '',
+          companyName: userData.companyName || userData.name || ''
+        };
+      }
+    } catch (fallbackError) {
+      console.error('Fallback to localStorage also failed:', fallbackError);
+    }
+    
+    return null;
+  }
 } 
