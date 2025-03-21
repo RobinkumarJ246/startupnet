@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   CheckCircle, 
@@ -15,12 +15,15 @@ import {
   Gift,
   Bell
 } from 'lucide-react';
+import { useAuth } from '../lib/auth/AuthContext';
 
 // Inner component that uses searchParams
 function SuccessContent() {
   const searchParams = useSearchParams();
   const [accountType, setAccountType] = useState('');
   const [countdown, setCountdown] = useState(15);
+  const router = useRouter();
+  const { isLoggedIn } = useAuth();
   
   useEffect(() => {
     const type = searchParams.get('type');
@@ -44,9 +47,15 @@ function SuccessContent() {
   // Redirect to dashboard after countdown
   useEffect(() => {
     if (countdown === 0) {
-      window.location.href = '/dashboard';
+      // Only redirect if logged in
+      if (isLoggedIn) {
+        router.push('/dashboard');
+      } else {
+        // If not logged in, redirect to login page with a return URL
+        router.push('/login?returnUrl=/dashboard');
+      }
     }
-  }, [countdown]);
+  }, [countdown, isLoggedIn, router]);
 
   const getTypeSpecificContent = () => {
     switch(accountType) {

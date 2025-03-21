@@ -1,23 +1,35 @@
 'use client';
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ArrowRight, Mailbox, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, AlertCircle, X } from 'lucide-react';
 import Navbar from './components/landing/Navbar';
 import Clubs from './components/landing/Clubs';
 import ProjectsSection from './components/landing/ProjectsSection';
 import FeaturedStartups from './components/landing/FeaturedStartups';
 import HowItWorks from './components/landing/HowItWorks';
+import { useAuth } from './lib/auth/AuthContext';
 
 // Create a client component to handle search params
 function LoginAlert() {
   const searchParams = useSearchParams();
   const [showLoginAlert, setShowLoginAlert] = useState(false);
+  const router = useRouter();
+  const { isLoggedIn } = useAuth();
   
   useEffect(() => {
     // Check if user was redirected from a protected route
     const loginRequired = searchParams.get('loginRequired');
+    
     if (loginRequired === 'true') {
+      // If the user is already logged in, redirect them to the explore page
+      // instead of showing the login alert
+      if (isLoggedIn) {
+        router.push('/explore');
+        return;
+      }
+      
+      // Only show the alert if not logged in
       setShowLoginAlert(true);
       
       // Auto-hide the alert after 5 seconds
@@ -27,7 +39,7 @@ function LoginAlert() {
       
       return () => clearTimeout(timer);
     }
-  }, [searchParams]);
+  }, [searchParams, isLoggedIn, router]);
 
   if (!showLoginAlert) return null;
 

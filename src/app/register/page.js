@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import Navbar from '../components/landing/Navbar';
 import { TextSkeleton, CardSkeleton } from '../components/shared/SkeletonLoader';
+import { useAuth } from '../lib/auth/AuthContext';
 
 function Registerform() {
 
@@ -918,6 +919,26 @@ function RegisterWithSearchParams() {
   const type = searchParams.get('type');
   const router = useRouter();
   const [selectedType, setSelectedType] = useState(type || null);
+  const { isLoggedIn } = useAuth();
+  
+  // Check if user is already logged in and redirect if needed
+  useEffect(() => {
+    if (isLoggedIn) {
+      router.push('/explore');
+    }
+  }, [isLoggedIn, router]);
+  
+  // Don't render registration content if already logged in
+  if (isLoggedIn) {
+    return (
+      <div className="min-h-screen flex justify-center items-center">
+        <div className="text-center p-6 bg-white rounded-lg shadow-md">
+          <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">Already logged in. Redirecting you...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleTypeSelect = (type) => {
     setSelectedType(type);
