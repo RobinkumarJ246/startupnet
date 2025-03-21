@@ -110,20 +110,34 @@ export async function verifyToken(token) {
  * @returns {NextResponse} Response with cookie set
  */
 export function setAuthCookie(response, token) {
+  console.log('Setting auth cookie, environment:', process.env.NODE_ENV);
   const isProduction = process.env.NODE_ENV === 'production';
   
-  // Set the cookie with options appropriate for both development and production
-  response.cookies.set({
-    name: 'token',
-    value: token,
-    httpOnly: true,
-    secure: isProduction, // Only use secure in production
-    sameSite: isProduction ? 'none' : 'lax', // Use 'none' in production for cross-site requests
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
-  
-  return response;
+  try {
+    // Set the cookie with options appropriate for both development and production
+    response.cookies.set({
+      name: 'token',
+      value: token,
+      httpOnly: true,
+      secure: isProduction, // Only use secure in production
+      sameSite: isProduction ? 'none' : 'lax', // Use 'none' in production for cross-site requests
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+    
+    // For Vercel, add a header to ensure cookies are properly handled
+    if (isProduction) {
+      response.headers.set('Set-Cookie', 
+        `token=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 7}`);
+    }
+    
+    console.log('Auth cookie set successfully');
+    return response;
+  } catch (error) {
+    console.error('Error setting auth cookie:', error);
+    // Still return the response even if cookie setting fails
+    return response;
+  }
 }
 
 /**

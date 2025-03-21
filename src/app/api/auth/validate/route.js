@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectDB } from '../../../lib/mongodb';
+import { connectDB } from '../../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getAuthTokenFromRequest, verifyToken } from '../../../lib/auth/token';
 
@@ -35,7 +35,19 @@ export async function GET(request) {
     }
     
     // Connect to database
-    const { db } = await connectDB();
+    let db;
+    try {
+      const connection = await connectDB();
+      db = connection.db;
+      console.log('Database connection successful');
+    } catch (dbError) {
+      console.error('Database connection error:', dbError);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Database connection failed',
+        message: dbError.message
+      }, { status: 500 });
+    }
     
     // Determine collection based on user type
     let collection;
