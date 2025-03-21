@@ -26,9 +26,12 @@ export function AuthProvider({ children }) {
   // Get stored user data directly from localStorage
   const getStoredUser = () => {
     try {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        return JSON.parse(userData);
+      // Check if window is defined (client-side only)
+      if (typeof window !== 'undefined') {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          return JSON.parse(userData);
+        }
       }
     } catch (error) {
       console.error('Error getting stored user data:', error);
@@ -40,24 +43,45 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const loadUserFromStorage = async () => {
       try {
+        // Set loading state first
+        setLoading(true);
+        
+        // Safety check for client-side code
+        if (typeof window === 'undefined') {
+          setLoading(false);
+          setInitialLoadComplete(true);
+          return;
+        }
+        
         // Set user from localStorage immediately for better UX
         const storedUser = getStoredUser();
         if (storedUser) {
+          console.log('User found in localStorage');
           setUser(storedUser);
           
           // Then validate with server in background
           try {
-            await validateSession();
+            const isValid = await validateSession();
+            console.log('Session validation result:', isValid);
+            
+            // If validation fails, clear user state
+            if (!isValid) {
+              console.log('Session validation failed, clearing user state');
+              setUser(null);
+            }
           } catch (error) {
-            console.error('Session validation failed:', error);
-            // If validation fails with a server error, still keep the localStorage data
-            // This allows the user to continue using the app if the server is temporarily unavailable
+            console.error('Session validation error:', error);
           }
+        } else {
+          console.log('No user found in localStorage');
         }
       } catch (error) {
         console.error('Error loading user data:', error);
         // Clear corrupted user data
-        localStorage.removeItem('user');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+        setUser(null);
       } finally {
         setLoading(false);
         setInitialLoadComplete(true);
@@ -71,25 +95,34 @@ export function AuthProvider({ children }) {
   const login = async (email, password, userType) => {
     try {
       setLoading(true);
+      console.log('Attempting login...');
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: include cookies in the request
         body: JSON.stringify({ email, password, userType }),
       });
 
+      console.log('Login response status:', response.status);
+      
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Login failed');
       }
 
       const data = await response.json();
+      console.log('Login successful, received user data');
       
       // Store user data in localStorage
-      if (data.user) {
+      if (data.user && typeof window !== 'undefined') {
+        console.log('Storing user data in localStorage');
         localStorage.setItem('user', JSON.stringify(data.user));
         setUser(data.user);
+      } else {
+        console.warn('No user data received from login');
       }
       
       return { success: true };
@@ -105,21 +138,29 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       setLoading(true);
+      console.log('Attempting logout...');
+      
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: include cookies in the request
       });
 
+      console.log('Logout response status:', response.status);
+      
+      // Clear user data regardless of response status
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user');
+      }
+      setUser(null);
+      
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Logout failed');
+        console.warn('Logout API error:', data.error || 'Logout failed');
+        // Continue with logout even if API fails
       }
-
-      // Clear user data from localStorage
-      localStorage.removeItem('user');
-      setUser(null);
       
       // Redirect to home page
       router.push('/');
@@ -127,6 +168,16 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
+      
+      // Still clear user data even if API request fails
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user');
+      }
+      setUser(null);
+      
+      // Redirect to home page even if there's an error
+      router.push('/');
+      
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -152,11 +203,19 @@ export function AuthProvider({ children }) {
   const validateSession = async () => {
     try {
       console.log('Validating session...');
+      
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') {
+        console.log('Cannot validate session in server environment');
+        return false;
+      }
+      
       const response = await fetch('/api/auth/validate', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: include cookies in the request
         // Add cache control to prevent browser caching
         cache: 'no-store',
       });
@@ -174,6 +233,7 @@ export function AuthProvider({ children }) {
         
         // For auth failures (401, 403), clear local state
         if (response.status === 401 || response.status === 403) {
+          console.log('Session unauthorized or forbidden, clearing user state');
           localStorage.removeItem('user');
           setUser(null);
         }
@@ -189,9 +249,13 @@ export function AuthProvider({ children }) {
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
         setUser(data.user);
+        return true;
+      } else {
+        console.warn('No user data returned from validation endpoint');
+        localStorage.removeItem('user');
+        setUser(null);
+        return false;
       }
-      
-      return true;
     } catch (error) {
       console.error('Session validation error:', error);
       // Don't clear local state for network errors

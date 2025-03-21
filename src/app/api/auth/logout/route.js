@@ -1,22 +1,35 @@
 import { NextResponse } from 'next/server';
+import { clearAuthCookie } from '../../../lib/auth/token';
 
 export async function POST() {
   try {
-    // Create a response object
+    console.log('Logout endpoint called');
+    
+    // Create base response
     const response = NextResponse.json({
-      message: 'Logged out successfully',
-      success: true
+      success: true,
+      message: 'Logged out successfully'
     });
     
-    // Delete the token cookie
-    response.cookies.delete('token');
+    // Clear the authentication cookie
+    clearAuthCookie(response);
+    
+    console.log('Auth cookie cleared');
     
     return response;
   } catch (error) {
     console.error('Logout error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
-      { status: 500 }
-    );
+    
+    // Even if there's an error, try to clear the cookie
+    const response = NextResponse.json({
+      success: false, 
+      error: 'Logout failed',
+      message: error.message
+    }, { status: 500 });
+    
+    // Still try to clear the cookie
+    clearAuthCookie(response);
+    
+    return response;
   }
 } 

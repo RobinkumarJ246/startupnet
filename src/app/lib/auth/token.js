@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
+import * as jose from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const TOKEN_EXPIRY = '7d'; // Token expires after 7 days
@@ -37,115 +38,100 @@ export async function verifyAuthToken(token) {
 }
 
 /**
- * Get the auth token from the request (from cookies)
- * @param {Request} request - The request object
- * @returns {Promise<string|null>} - The token or null if not found
+ * Get auth token from request (cookies or headers)
+ * @param {Request} request - Next.js request object
+ * @returns {Promise<string|null>} The auth token or null if not found
  */
 export async function getAuthTokenFromRequest(request) {
   try {
-    // Try to get the token from cookies first
+    console.log('Getting auth token from request');
+    
+    // First try to get token from cookies
+    let token;
+    
+    // Try to get token from cookies
     try {
-      const cookieStore = await cookies();
-      const authToken = cookieStore.get('auth_token')?.value;
+      const cookies = await request.cookies.getAll();
+      const tokenCookie = cookies.find(cookie => cookie.name === 'token');
+      token = tokenCookie?.value;
       
-      if (authToken) {
-        return authToken;
+      if (token) {
+        console.log('Token found in cookies');
+        return token;
       }
-    } catch (cookieError) {
-      console.log('Could not access cookie store:', cookieError.message);
-      // Continue to try other methods
+    } catch (error) {
+      console.error('Error getting token from cookies:', error);
     }
     
-    // If cookies aren't available, try to get from Authorization header
-    if (request && request.headers) {
+    // If not found in cookies, try Authorization header
+    if (!token) {
       try {
         const authHeader = request.headers.get('Authorization');
         if (authHeader && authHeader.startsWith('Bearer ')) {
-          return authHeader.substring(7);
+          token = authHeader.split(' ')[1];
+          console.log('Token found in Authorization header');
+          return token;
         }
-      } catch (headerError) {
-        console.log('Could not access request headers:', headerError.message);
+      } catch (error) {
+        console.error('Error getting token from headers:', error);
       }
     }
     
-    // Try to extract cookie from request manually
-    if (request && request.cookies) {
-      try {
-        const cookies = request.cookies;
-        const authCookie = cookies.get('auth_token');
-        if (authCookie) {
-          return authCookie.value;
-        }
-      } catch (requestCookieError) {
-        console.log('Could not access request cookies:', requestCookieError.message);
-      }
-    }
-    
-    // As a last resort, check Cookie header manually
-    if (request && request.headers) {
-      try {
-        const cookieHeader = request.headers.get('Cookie');
-        if (cookieHeader) {
-          const cookies = cookieHeader.split(';');
-          for (const cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            if (name === 'auth_token') {
-              return value;
-            }
-          }
-        }
-      } catch (cookieHeaderError) {
-        console.log('Could not parse Cookie header:', cookieHeaderError.message);
-      }
-    }
-    
+    console.log('No auth token found');
     return null;
   } catch (error) {
-    console.error('Error retrieving auth token:', error);
+    console.error('Error getting auth token:', error);
     return null;
   }
 }
 
 /**
- * Set the auth token as a cookie
- * @param {Response} response - The response object
- * @param {string} token - The token to set
- * @returns {Response} - The updated response
+ * Verify JWT token
+ * @param {string} token - JWT token to verify
+ * @returns {Promise<Object>} Decoded token payload
  */
-export function setAuthTokenCookie(response, token) {
-  // Calculate expiry date (7 days from now)
-  const expiryDate = new Date();
-  expiryDate.setDate(expiryDate.getDate() + 7);
+export async function verifyToken(token) {
+  try {
+    const JWT_SECRET = process.env.JWT_SECRET || 'startupsnet-secure-jwt-secret-key-2024';
+    const secret = new TextEncoder().encode(JWT_SECRET);
+    
+    const { payload } = await jose.jwtVerify(token, secret);
+    return payload;
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    throw new Error('Invalid token');
+  }
+}
+
+/**
+ * Set auth cookie for different environments
+ * @param {NextResponse} response - Next.js response object
+ * @param {string} token - JWT token to set in cookie
+ * @returns {NextResponse} Response with cookie set
+ */
+export function setAuthCookie(response, token) {
+  const isProduction = process.env.NODE_ENV === 'production';
   
-  // Set the cookie
+  // Set the cookie with options appropriate for both development and production
   response.cookies.set({
-    name: 'auth_token',
+    name: 'token',
     value: token,
     httpOnly: true,
+    secure: isProduction, // Only use secure in production
+    sameSite: isProduction ? 'none' : 'lax', // Use 'none' in production for cross-site requests
     path: '/',
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    expires: expiryDate
+    maxAge: 60 * 60 * 24 * 7, // 7 days
   });
   
   return response;
 }
 
 /**
- * Clear the auth token cookie
- * @param {Response} response - The response object
- * @returns {Response} - The updated response
+ * Clear auth cookie
+ * @param {NextResponse} response - Next.js response object
+ * @returns {NextResponse} Response with cookie cleared
  */
-export function clearAuthTokenCookie(response) {
-  response.cookies.set({
-    name: 'auth_token',
-    value: '',
-    httpOnly: true,
-    path: '/',
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    expires: new Date(0) // Set expiry to epoch to delete the cookie
-  });
-  
+export function clearAuthCookie(response) {
+  response.cookies.delete('token');
   return response;
 } 
