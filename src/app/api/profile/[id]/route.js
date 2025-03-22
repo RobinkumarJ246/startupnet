@@ -122,6 +122,13 @@ export async function GET(request, { params }) {
       // This makes it easier for the frontend to know
       const checkForProfilePic = async () => {
         try {
+          // For startup accounts, always set hasProfilePic to true initially to prevent 400 errors
+          if (userType === 'startup' && profile.hasProfilePic === undefined) {
+            profile.hasProfilePic = true;
+            console.log('Profile API: Setting default hasProfilePic=true for startup account');
+            return; // Skip GridFS check for startups
+          }
+          
           // Only perform this check if the hasProfilePic field doesn't already exist
           if (profile.hasProfilePic === undefined) {
             console.log('Profile API: Checking for profile picture existence...');
@@ -157,7 +164,7 @@ export async function GET(request, { params }) {
         } catch (imgError) {
           console.error('Error checking for profile picture:', imgError);
           // Default to true for student and club accounts, as they usually have default images
-          profile.hasProfilePic = (userType === 'student' || userType === 'club');
+          profile.hasProfilePic = (userType === 'student' || userType === 'club' || userType === 'startup');
         }
       };
       
@@ -183,6 +190,7 @@ export async function GET(request, { params }) {
         const hasProfilePic = profile.hasProfilePic || 
                              (userType === 'student' && profile.hasProfilePic !== false) || 
                              (userType === 'club' && profile.hasProfilePic !== false) || 
+                             (userType === 'startup' && profile.hasProfilePic !== false) || 
                              !!profile.profileImageUrl;
       
         // Create user type-specific public profiles
