@@ -28,12 +28,41 @@ export async function generateToken(payload) {
  */
 export async function verifyAuthToken(token) {
   try {
+    // Validate token format first to prevent JWSInvalid errors
+    if (!token || typeof token !== 'string' || !token.includes('.')) {
+      console.error('Invalid token format:', typeof token);
+      throw new Error('Invalid token format');
+    }
+    
+    // Try to decode the token first without verification to check structure
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        throw new Error('Invalid JWT structure');
+      }
+      // Just check if we can decode the payload
+      JSON.parse(atob(parts[1]));
+    } catch (decodeError) {
+      console.error('Failed to decode token segments:', decodeError);
+      throw new Error('Invalid token structure');
+    }
+    
     const secret = new TextEncoder().encode(JWT_SECRET);
     const { payload } = await jwtVerify(token, secret);
+    
+    console.log('Token verified successfully');
     return payload;
   } catch (error) {
     console.error('Token verification failed:', error);
-    throw new Error('Invalid or expired token');
+    
+    // Provide more specific error messages
+    if (error.code === 'ERR_JWS_INVALID') {
+      throw new Error('Invalid token format');
+    } else if (error.code === 'ERR_JWT_EXPIRED') {
+      throw new Error('Token has expired');
+    } else {
+      throw new Error('Invalid or expired token');
+    }
   }
 }
 
@@ -43,6 +72,11 @@ export async function verifyAuthToken(token) {
  * @returns {Promise<string|null>} The auth token or null if not found
  */
 export async function getAuthTokenFromRequest(request) {
+  if (!request) {
+    console.error('No request object provided to getAuthTokenFromRequest');
+    return null;
+  }
+  
   try {
     console.log('Getting auth token from request');
     
@@ -51,13 +85,21 @@ export async function getAuthTokenFromRequest(request) {
     
     // Try to get token from cookies
     try {
-      const cookies = await request.cookies.getAll();
-      const tokenCookie = cookies.find(cookie => cookie.name === 'token');
-      token = tokenCookie?.value;
+      const cookies = request.cookies;
       
-      if (token) {
-        console.log('Token found in cookies');
-        return token;
+      if (!cookies || typeof cookies.getAll !== 'function') {
+        console.log('No cookies object or getAll method available on request');
+      } else {
+        const allCookies = await cookies.getAll();
+        // Try different possible cookie names
+        for (const cookieName of ['token', 'auth-token', 'authToken']) {
+          const tokenCookie = allCookies.find(cookie => cookie.name === cookieName);
+          if (tokenCookie?.value) {
+            token = tokenCookie.value;
+            console.log(`Token found in cookies with name: ${cookieName}`);
+            break;
+          }
+        }
       }
     } catch (error) {
       console.error('Error getting token from cookies:', error);
@@ -70,15 +112,18 @@ export async function getAuthTokenFromRequest(request) {
         if (authHeader && authHeader.startsWith('Bearer ')) {
           token = authHeader.split(' ')[1];
           console.log('Token found in Authorization header');
-          return token;
         }
       } catch (error) {
         console.error('Error getting token from headers:', error);
       }
     }
     
-    console.log('No auth token found');
-    return null;
+    if (!token) {
+      console.log('No auth token found in request');
+      return null;
+    }
+    
+    return token;
   } catch (error) {
     console.error('Error getting auth token:', error);
     return null;

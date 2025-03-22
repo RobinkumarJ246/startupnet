@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { connectDB } from '../../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { getAuthTokenFromRequest, verifyAuthToken } from '../../../lib/auth/token';
-import { getTokenDataFromCookies } from '@/app/lib/auth/token';
 import { connectToDatabase } from '@/app/lib/db';
 
 /**
@@ -42,9 +40,10 @@ function addMissingFields(userData) {
     enhancedUser.companyName = enhancedUser.name;
   }
   
-  // Add a flag for profile image
-  if (userType === 'student' || userType === 'club') {
-    enhancedUser.hasProfileImage = true;
+  // Add a flag for profile picture
+  if (!enhancedUser.hasProfilePic) {
+    // For students, clubs, and startups, assume they all can have profile pictures
+    enhancedUser.hasProfilePic = true;
   }
   
   console.log('Validate API: Enhanced user data:', {
@@ -54,7 +53,7 @@ function addMissingFields(userData) {
     clubName: enhancedUser.clubName,
     fullName: enhancedUser.fullName,
     companyName: enhancedUser.companyName,
-    hasProfileImage: enhancedUser.hasProfileImage
+    hasProfilePic: enhancedUser.hasProfilePic
   });
   
   return enhancedUser;
@@ -65,151 +64,201 @@ export async function GET(request) {
     console.log('Received validation request');
     
     // First try to get token from request headers or cookies
-    let token = getAuthTokenFromRequest(request);
-    let tokenData;
+    const token = await getAuthTokenFromRequest(request);
     
-    if (token) {
+    // If no token found, check if there's user data in the request body
+    // This allows client to pass user data from localStorage
+    let userData = null;
+    let userFoundInDb = false;
+    
+    if (!token) {
+      console.log('No token found in request, checking for user data in cookies/localStorage');
       try {
-        // Verify the token from the request
-        const verifyResult = await verifyAuthToken(token);
-        if (verifyResult && verifyResult.valid) {
-          tokenData = verifyResult.data;
-          console.log('Token verified from request:', tokenData?._id);
+        // Try to extract user data from request
+        const url = new URL(request.url);
+        const userId = url.searchParams.get('userId');
+        const userType = url.searchParams.get('userType');
+        
+        if (userId && userType) {
+          console.log(`Found user info in request: ${userId} (${userType})`);
+          userData = { _id: userId, type: userType };
         } else {
-          console.log('Invalid token from request');
+          console.log('No user data found in request');
+          return NextResponse.json(
+            { error: 'Not authenticated' },
+            { status: 401 }
+          );
+        }
+      } catch (extractError) {
+        console.error('Error extracting user data from request:', extractError);
+        return NextResponse.json(
+          { error: 'Not authenticated' },
+          { status: 401 }
+        );
+      }
+    } else {
+      // Token found, try to verify it
+      try {
+        userData = await verifyAuthToken(token);
+        if (userData) {
+          console.log('Token verified successfully, user ID:', userData.userId || userData._id);
         }
       } catch (verifyError) {
-        console.error('Error verifying token from request:', verifyError);
-      }
-    }
-    
-    // If no valid token from request, try from cookies (fallback)
-    if (!tokenData) {
-      try {
-        tokenData = getTokenDataFromCookies();
-        if (tokenData) {
-          console.log('Retrieved token data from cookies:', tokenData?._id);
-        } else {
-          console.log('No token data in cookies');
+        console.error('Token verification failed:', verifyError.message);
+        
+        // Extract userId and userType from request for fallback
+        try {
+          const url = new URL(request.url);
+          const userId = url.searchParams.get('userId');
+          const userType = url.searchParams.get('userType');
+          
+          if (userId && userType) {
+            console.log(`Using fallback user info from request: ${userId} (${userType})`);
+            userData = { _id: userId, type: userType };
+          } else {
+            console.log('No fallback user data found in request');
+            return NextResponse.json(
+              { error: 'Invalid authentication token' },
+              { status: 401 }
+            );
+          }
+        } catch (extractError) {
+          console.error('Error extracting fallback user data:', extractError);
+          return NextResponse.json(
+            { error: 'Authentication failed' },
+            { status: 401 }
+          );
         }
-      } catch (cookieError) {
-        console.error('Error getting token from cookies:', cookieError);
       }
     }
     
-    // If still no token, user is not authenticated
-    if (!tokenData) {
-      console.log('No valid token found in request or cookies');
+    // Ensure userId is correctly identified regardless of where it's stored in the object
+    const userId = userData.userId || userData._id || userData.id;
+    const userType = userData.userType || userData.type;
+    
+    if (!userId) {
+      console.error('No user ID found in auth data');
       return NextResponse.json(
-        { error: 'No valid token found' },
+        { error: 'Invalid user data' },
         { status: 401 }
       );
     }
     
-    // Ensure _id is properly formatted
-    if (tokenData._id && typeof tokenData._id === 'string' && ObjectId.isValid(tokenData._id)) {
-      try {
-        tokenData._id = new ObjectId(tokenData._id);
-      } catch (err) {
-        console.warn('Could not convert string ID to ObjectId:', err.message);
-      }
-    }
+    console.log(`Validating user: ${userId} (${userType || 'unknown type'})`);
     
-    // Connect to MongoDB
-    let client;
+    // Connect to MongoDB to get full user data
+    let client = null;
     try {
-      console.log('Connecting to database...');
-      ({ client } = await connectToDatabase());
-      console.log('Connected to database successfully');
-    } catch (dbError) {
-      console.error('Database connection failed during validation:', dbError);
+      const { client: dbClient, db } = await connectToDatabase();
+      client = dbClient;
       
-      // Enhance token data before returning
-      const enhancedTokenData = addMissingFields(tokenData);
+      let collection;
+      if (userType === 'student') {
+        collection = 'students';
+      } else if (userType === 'startup') {
+        collection = 'startups';
+      } else if (userType === 'club') {
+        collection = 'clubs';
+      } else {
+        console.error('Invalid user type:', userType);
+        // Try all collections as a fallback
+        collection = null;
+      }
       
-      // Return a special status to indicate database connection error
-      // but still return the tokenData so client can use it for offline mode
+      let user = null;
+      
+      // Convert ID to ObjectId if possible
+      let queryId;
+      try {
+        if (ObjectId.isValid(userId)) {
+          queryId = new ObjectId(userId);
+        } else {
+          queryId = userId;
+        }
+      } catch (idError) {
+        console.error('Error converting ID to ObjectId:', idError);
+        queryId = userId;
+      }
+      
+      // Try to find user in specified collection first
+      if (collection) {
+        console.log(`Looking for user in ${collection} collection with ID:`, queryId);
+        user = await db.collection(collection).findOne({ _id: queryId });
+        
+        if (user) {
+          console.log(`User found in ${collection} collection`);
+          userFoundInDb = true;
+        }
+      }
+      
+      // If user not found and no specific collection was specified, try all collections
+      if (!user) {
+        const collections = ['students', 'startups', 'clubs'];
+        console.log('User not found in specific collection, trying all collections');
+        
+        for (const coll of collections) {
+          if (coll === collection) continue; // Skip if we already checked this collection
+          
+          console.log(`Looking for user in ${coll} collection with ID:`, queryId);
+          user = await db.collection(coll).findOne({ _id: queryId });
+          
+          if (user) {
+            console.log(`User found in ${coll} collection`);
+            // Update the user type if needed
+            if (coll === 'students') user.type = user.type || 'student';
+            if (coll === 'startups') user.type = user.type || 'startup';
+            if (coll === 'clubs') user.type = user.type || 'club';
+            userFoundInDb = true;
+            break;
+          }
+        }
+      }
+      
+      // If user not found in database, return basic user data from auth
+      if (!user) {
+        console.log('User not found in database, returning basic user data');
+        const enhancedUserData = addMissingFields(userData);
+        
+        return NextResponse.json(
+          { 
+            message: 'User not found in database', 
+            user: enhancedUserData,
+            dbUser: false
+          }, 
+          { status: 200 }  // Return 200 to allow client to function
+        );
+      }
+      
+      // User found in database, return full user data
+      const enhancedUser = addMissingFields(user);
+      console.log('User validation successful', enhancedUser._id);
+      
       return NextResponse.json(
         { 
-          message: 'Database connection error', 
-          connectionError: true,
-          user: enhancedTokenData
+          user: enhancedUser,
+          dbUser: true
         }, 
         { status: 200 }
       );
-    }
-    
-    // We successfully connected to the database, now get more user info
-    try {
-      const db = client.db();
-      const userType = tokenData.userType || tokenData.type;
+    } catch (dbError) {
+      console.error('Database error during validation:', dbError);
       
-      const collection = userType === 'student' ? 'students' : 
-        userType === 'startup' ? 'startups' : 
-        userType === 'club' ? 'clubs' : null;
+      // Return basic user data from auth token/request
+      const enhancedUserData = addMissingFields(userData);
       
-      if (!collection) {
-        console.error('Invalid user type in token:', userType);
-        await client.close();
-        
-        // Enhance token data before returning
-        const enhancedTokenData = addMissingFields(tokenData);
-        
-        return NextResponse.json(
-          { 
-            error: 'Invalid user type',
-            user: enhancedTokenData  
-          },
-          { status: 200 }  // Return 200 to allow fallback to token data
-        );
-      }
-      
-      console.log(`Looking for user in ${collection} collection with ID:`, tokenData._id);
-      const user = await db.collection(collection).findOne({ _id: tokenData._id });
-      
-      await client.close();
-      
-      if (!user) {
-        console.log('User not found in database');
-        
-        // Enhance token data before returning
-        const enhancedTokenData = addMissingFields(tokenData);
-        
-        return NextResponse.json(
-          { 
-            error: 'User not found', 
-            user: enhancedTokenData 
-          },
-          { status: 200 }  // Return 200 to allow fallback to token data
-        );
-      }
-      
-      // Enhance user data with missing fields
-      const enhancedUser = addMissingFields(user);
-      
-      console.log('User validation successful', enhancedUser._id);
-      return NextResponse.json({ user: enhancedUser }, { status: 200 });
-    } catch (error) {
-      console.error('Error fetching user data during validation:', error);
-      
-      // Close the database connection if it exists
+      return NextResponse.json(
+        { 
+          message: 'Database error, using basic user data', 
+          user: enhancedUserData,
+          dbUser: false,
+          dbError: true
+        }, 
+        { status: 200 }  // Return 200 to allow client to function
+      );
+    } finally {
       if (client) {
         await client.close();
       }
-      
-      // Enhance token data before returning
-      const enhancedTokenData = addMissingFields(tokenData);
-      
-      // Return a special status to indicate database error during user fetch
-      // but still return the tokenData so client can use it for offline mode
-      return NextResponse.json(
-        { 
-          message: 'Database error during user fetch', 
-          connectionError: true,
-          user: enhancedTokenData
-        }, 
-        { status: 200 }
-      );
     }
   } catch (error) {
     console.error('Error during validation:', error);
