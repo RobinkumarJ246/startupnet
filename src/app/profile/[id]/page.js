@@ -91,44 +91,77 @@ export default function SharedProfilePage({ params }) {
     if (!profileId) return;
     
     const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      
       try {
-        setLoading(true);
-        setConnectionError(false);
+        console.log('Fetching profile data for ID:', profileId);
         const response = await fetch(`/api/profile/${profileId}`, {
           method: 'GET',
-          credentials: 'include', // Include cookies for authentication
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include' // Include cookies to check authentication
         });
         
         if (!response.ok) {
-          if (response.status === 503 || response.status === 500) {
-            // Server error - likely database connection issue
-            setConnectionError(true);
-            throw new Error('Database connection error');
+          const error = await response.json();
+          console.error('Profile fetch error:', error);
+          
+          if (response.status === 404) {
+            setError('Profile not found. The user may have deleted their account or changed their URL.');
+          } else if (response.status === 400) {
+            setError('Invalid profile ID. Please check the URL and try again.');
+          } else {
+            setError('Error loading profile. Please try again later.');
           }
-          throw new Error('Failed to load profile');
+          
+          setLoading(false);
+          return;
         }
         
-        const data = await response.json();
-        setProfile(data);
+        const profileData = await response.json();
+        console.log('Profile data loaded:', profileData.type || 'unknown type');
         
-        // Check if user is authenticated based on the response
-        setIsUserLoggedIn(data.isAuthenticated || false);
+        // Ensure the profile has the right type field
+        if (!profileData.type && profileData.userType) {
+          profileData.type = profileData.userType;
+        }
+        
+        // Add profile-type-specific handling here
+        if (profileData.type === 'student') {
+          // Ensure student profile has all required fields
+          if (!profileData.fullName && profileData.name) {
+            profileData.fullName = profileData.name;
+          }
+          if (!profileData.name && profileData.fullName) {
+            profileData.name = profileData.fullName;
+          }
+        } else if (profileData.type === 'startup') {
+          // Ensure startup profile has all required fields
+          if (!profileData.companyName && profileData.name) {
+            profileData.companyName = profileData.name;
+          }
+          if (!profileData.name && profileData.companyName) {
+            profileData.name = profileData.companyName;
+          }
+        } else if (profileData.type === 'club') {
+          // Ensure club profile has all required fields
+          if (!profileData.clubName && profileData.name) {
+            profileData.clubName = profileData.name;
+          }
+          if (!profileData.name && profileData.clubName) {
+            profileData.name = profileData.clubName;
+          }
+          if (!profileData.description && profileData.clubDescription) {
+            profileData.description = profileData.clubDescription;
+          }
+        }
+        
+        setProfile(profileData);
       } catch (error) {
-        console.error('Error loading shared profile:', error);
-        
-        // Check if it's a connection error
-        if (error.message && 
-            (error.message.includes('Database connection error') ||
-             error.message.includes('MongoDB connection error') || 
-             error.message.includes('MongoNetworkError') ||
-             error.message.includes('ECONNREFUSED') ||
-             error.message.includes('certificate') ||
-             error.message.includes('SSL'))) {
-          setConnectionError(true);
-          setError('Database connection error. Please try again later.');
-        } else {
-          setError('Failed to load profile. It may not exist or you may not have permission to view it.');
-        }
+        console.error('Error fetching profile:', error);
+        setError('Network error while loading profile. Please check your connection and try again.');
       } finally {
         setLoading(false);
       }
@@ -335,9 +368,9 @@ export default function SharedProfilePage({ params }) {
             <div className="p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row items-start sm:items-center">
                 <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-lg bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0 mb-4 sm:mb-0">
-                  {displayProfile.profileImageUrl ? (
+                  {displayProfile.hasProfilePic ? (
                     <Image 
-                      src={displayProfile.profileImageUrl}
+                      src={`/api/profile/image/${displayProfile._id}`}
                       alt={`${displayProfile.name || displayProfile.companyName || displayProfile.clubName}'s profile`}
                       width={96}
                       height={96}
@@ -346,19 +379,20 @@ export default function SharedProfilePage({ params }) {
                       onError={(e) => {
                         // If image fails to load, replace with icon
                         e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling.style.display = 'flex';
+                        e.currentTarget.parentElement.querySelector('div').style.display = 'flex';
                       }}
                     />
-                  ) : null}
-                  <div className={`h-full w-full items-center justify-center ${displayProfile.profileImageUrl ? 'hidden' : 'flex'}`}>
-                    {profileType === 'student' ? (
-                      <User className="h-12 w-12 text-indigo-400" />
-                    ) : profileType === 'startup' ? (
-                      <Building className="h-12 w-12 text-indigo-400" />
-                    ) : (
-                      <Users className="h-12 w-12 text-indigo-400" />
-                    )}
-                  </div>
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center">
+                      {profileType === 'student' ? (
+                        <User className="h-12 w-12 text-indigo-400" />
+                      ) : profileType === 'startup' ? (
+                        <Building className="h-12 w-12 text-indigo-400" />
+                      ) : (
+                        <Users className="h-12 w-12 text-indigo-400" />
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="sm:ml-6 flex-1">

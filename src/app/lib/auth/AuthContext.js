@@ -63,16 +63,16 @@ export function AuthProvider({ children }) {
           
           // Then validate with server in background
           try {
-            const isValid = await validateSession();
-            console.log('Session validation result:', isValid);
-            
-            // If validation fails, clear user state
-            if (!isValid) {
-              console.log('Session validation failed, clearing user state');
-              setUser(null);
-            }
+            // Don't wait for session validation, just let it run in background
+            validateSession().then(isValid => {
+              console.log('Session validation result:', isValid);
+              // Even if validation fails, don't immediately log out the user
+              // This prevents flash of logged-out state on network hiccups
+            }).catch(error => {
+              console.error('Background session validation error:', error);
+            });
           } catch (error) {
-            console.error('Session validation error:', error);
+            console.error('Session validation setup error:', error);
           }
         } else {
           console.log('No user found in localStorage');
@@ -462,92 +462,116 @@ export function AuthProvider({ children }) {
         return false;
       }
       
-      const response = await fetch('/api/auth/validate', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Important: include cookies in the request
-        // Add cache control to prevent browser caching
-        cache: 'no-store',
-      });
-
-      console.log('Validation response status:', response.status);
-      
-      if (!response.ok) {
-        // Handle different error cases
-        if (response.status === 404) {
-          console.error('Validation endpoint not found - API route may be missing');
-          // Don't clear local state for 404 errors (endpoint not found)
-          // This allows the user to continue using the app if the endpoint is misconfigured
-          return false;
-        }
-        
-        // For auth failures (401, 403), clear local state
-        if (response.status === 401 || response.status === 403) {
-          console.log('Session unauthorized or forbidden, clearing user state');
-          localStorage.removeItem('user');
-          setUser(null);
-        }
-        
+      // Check if we already have a user in localStorage before making network request
+      const storedUser = getStoredUser();
+      if (!storedUser) {
+        console.log('No stored user found, cannot validate session');
         return false;
       }
+      
+      // Add timeout to prevent long-hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      
+      try {
+        const response = await fetch('/api/auth/validate', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Important: include cookies in the request
+          // Add cache control to prevent browser caching
+          cache: 'no-store',
+          signal: controller.signal
+        });
 
-      // Get the latest user data from server
-      const data = await response.json();
-      console.log('Validation successful, received user data:', data.user ? data.user.type || 'unknown type' : 'no user data');
-      
-      // Check if there was a database connection error
-      if (data.connectionError) {
-        console.log('Validation returned with database connection error, using stored user data');
-        // Don't update the user state from incomplete data
-        // Instead, keep using the existing user data
-        return true;
-      }
-      
-      // Update localStorage with fresh data
-      if (data.user) {
-        // Ensure data has all required fields
-        const userData = { ...data.user };
+        clearTimeout(timeoutId);
+        console.log('Validation response status:', response.status);
         
-        // Standardize the user type field
-        if (!userData.userType && userData.type) {
-          userData.userType = userData.type;
+        if (!response.ok) {
+          // Handle different error cases
+          if (response.status === 404) {
+            console.error('Validation endpoint not found - API route may be missing');
+            // Don't clear local state for 404 errors (endpoint not found)
+            // This allows the user to continue using the app if the endpoint is misconfigured
+            return true; // Return true to keep user logged in
+          }
+          
+          // For auth failures (401, 403), don't immediately clear user
+          // Instead let the user continue using the app with localStorage data
+          if (response.status === 401 || response.status === 403) {
+            console.log('Session validation returned unauthorized, but keeping user logged in for better UX');
+            return true; // Return true to keep user logged in with localStorage data
+          }
+          
+          return true; // Return true to keep user logged in with localStorage data
         }
-        if (!userData.type && userData.userType) {
-          userData.type = userData.userType;
+
+        // Get the latest user data from server
+        const data = await response.json();
+        console.log('Validation successful, received user data:', data.user ? data.user.type || 'unknown type' : 'no user data');
+        
+        // Check if there was a database connection error
+        if (data.connectionError) {
+          console.log('Validation returned with database connection error, using stored user data');
+          // Don't update the user state from incomplete data
+          // Instead, keep using the existing user data
+          return true;
         }
         
-        // Logging data for debugging
-        if (userData.type === 'club') {
-          console.log('Club user validated with data:', {
-            id: userData._id,
-            name: userData.clubName || 'missing clubName',
-            type: userData.type,
-            university: userData.university
-          });
+        // Update localStorage with fresh data
+        if (data.user) {
+          // Ensure data has all required fields
+          const userData = { ...data.user };
+          
+          // Standardize the user type field
+          if (!userData.userType && userData.type) {
+            userData.userType = userData.type;
+          }
+          if (!userData.type && userData.userType) {
+            userData.type = userData.userType;
+          }
+          
+          // Logging data for debugging
+          if (userData.type === 'club') {
+            console.log('Club user validated with data:', {
+              id: userData._id,
+              name: userData.clubName || 'missing clubName',
+              type: userData.type,
+              university: userData.university
+            });
+          }
+          
+          // Update localStorage with complete user data
+          console.log('Updating localStorage with validated user data');
+          localStorage.setItem('user', JSON.stringify(userData));
+          localStorage.setItem('userType', userData.type || userData.userType);
+          localStorage.setItem('userId', userData._id);
+          
+          // Update context state with complete user data
+          setUser(userData);
+          return true;
+        } else {
+          console.warn('No user data returned from validation endpoint, but keeping user logged in with localStorage data');
+          return true; // Return true to keep user logged in with localStorage data
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        // Handle timeout errors
+        if (fetchError.name === 'AbortError') {
+          console.error('Session validation request timed out');
+          return true; // Return true to keep user logged in with localStorage data
         }
         
-        // Update localStorage with complete user data
-        console.log('Updating localStorage with validated user data');
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('userType', userData.type || userData.userType);
-        localStorage.setItem('userId', userData._id);
-        
-        // Update context state with complete user data
-        setUser(userData);
-        return true;
-      } else {
-        console.warn('No user data returned from validation endpoint');
-        localStorage.removeItem('user');
-        setUser(null);
-        return false;
+        console.error('Fetch error during session validation:', fetchError);
+        return true; // Return true to keep user logged in with localStorage data
       }
     } catch (error) {
       console.error('Session validation error:', error);
       // Don't clear local state for network errors
       // This allows the user to continue using the app if there are temporary network issues
-      return false;
+      return true; // Return true to keep user logged in with localStorage data
     }
   };
 

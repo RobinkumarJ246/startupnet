@@ -114,24 +114,27 @@ export function setAuthCookie(response, token) {
   const isProduction = process.env.NODE_ENV === 'production';
   
   try {
-    // Set the cookie with options appropriate for both development and production
-    response.cookies.set({
+    // Set cookie attributes properly for all environments
+    const cookieAttributes = {
       name: 'token',
       value: token,
       httpOnly: true,
-      secure: isProduction, // Only use secure in production
-      sameSite: isProduction ? 'none' : 'lax', // Use 'none' in production for cross-site requests
+      secure: true, // Always use secure cookies for JWT tokens
+      sameSite: isProduction ? 'none' : 'lax', // 'none' for production, 'lax' for dev
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
+      priority: 'high'
+    };
     
-    // For Vercel, add a header to ensure cookies are properly handled
-    if (isProduction) {
-      response.headers.set('Set-Cookie', 
-        `token=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 7}`);
-    }
+    // Set the cookie
+    response.cookies.set(cookieAttributes);
     
-    console.log('Auth cookie set successfully');
+    // For Vercel, set a more explicit Set-Cookie header to ensure it works in all browsers
+    // This is needed because NextResponse.cookies sometimes doesn't set complete attributes
+    const cookieString = `token=${token}; Path=/; HttpOnly; Secure; SameSite=${isProduction ? 'None' : 'Lax'}; Max-Age=${60 * 60 * 24 * 7}; Priority=High`;
+    response.headers.set('Set-Cookie', cookieString);
+    
+    console.log('Auth cookie set successfully with explicit header');
     return response;
   } catch (error) {
     console.error('Error setting auth cookie:', error);

@@ -546,6 +546,7 @@ export default function ProfilePage() {
   const { user, loading: authLoading, refreshUser, logout, forceRefresh, resetAppState } = useAuth();
   const [notification, setNotification] = useState('');
   const [showNotification, setShowNotification] = useState(false);
+  const [notificationIsError, setNotificationIsError] = useState(false);
   const [showAccountSettingsModal, setShowAccountSettingsModal] = useState(false);
   const [isCurrentUser, setIsCurrentUser] = useState(true);
   const [shareUrl, setShareUrl] = useState('');
@@ -563,38 +564,45 @@ export default function ProfilePage() {
 
   // Load user data from auth context or localStorage
   const loadUserData = () => {
-    console.log('Loading user data for profile page');
+    setLoading(true);
+    
     try {
-      // Check if we have a stored connection error
-      if (typeof window !== 'undefined' && localStorage.getItem('dbConnectionError')) {
-        console.log('Database connection error detected from localStorage');
-        setDbConnectionError(true);
-      }
-      
-      // Get user from auth context first
-      if (user) {
-        console.log('Using auth context user data', user);
-        setUserData(user);
-        setLoading(false);
-        return;
-      }
-      
-      // Fall back to localStorage if auth context is not available
-      if (typeof window !== 'undefined') {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          console.log('Using localStorage user data', parsedUser);
-          setUserData(parsedUser);
-        } else {
-          // No user data in localStorage, redirect to login
-          console.log('No user data found, redirecting to login');
-          router.push('/login');
+      // Get data from localStorage first for immediate display
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          console.log('Loaded user data from localStorage:', userData.type || 'unknown type');
+          setUserData(userData);
+          
+          // Enhance the UI with the loaded user data
+          document.title = `${getUserDisplayName(userData)} | Profile - StartupsNet`;
+        } catch (parseError) {
+          console.error('Error parsing user data from localStorage:', parseError);
         }
       }
+      
+      // Then try to validate with the server to get the latest data
+      // This runs in parallel and will update the UI when it completes
+      validateSession().then(isValid => {
+        console.log('Session validation result:', isValid);
+        
+        // Get the latest user from context
+        const contextUser = getStoredUser();
+        if (contextUser) {
+          console.log('Using user from context after validation');
+          setUserData(contextUser);
+          document.title = `${getUserDisplayName(contextUser)} | Profile - StartupsNet`;
+        }
+        
+        setLoading(false);
+      }).catch(error => {
+        console.error('Error in session validation:', error);
+        // We already have the user from localStorage, so just show that
+        setLoading(false);
+      });
     } catch (error) {
       console.error('Error loading user data:', error);
-    } finally {
       setLoading(false);
     }
   };
@@ -645,6 +653,7 @@ export default function ProfilePage() {
   const showStatusNotification = (message, isError = false) => {
     setNotification(message);
     setShowNotification(true);
+    setNotificationIsError(isError);
     
     // Auto dismiss after 5 seconds
     setTimeout(() => {
@@ -707,33 +716,95 @@ export default function ProfilePage() {
     logout();
   };
 
-  // Function to share the profile with a public URL
+  // Update the handleShareProfile function to work for all profile types
   const handleShareProfile = () => {
-    if (user) {
-      setIsCopying(true);
-      // Use either _id or id, depending on what's available
-      const userId = user._id || user.id;
+    if (!user || !user._id) {
+      showStatusNotification('Unable to share profile. User data not available.', true);
+      return;
+    }
+    
+    try {
+      // Create the share URL for the current user
+      const profileId = user._id;
+      const userType = user.type || user.userType;
+      const baseUrl = window.location.origin;
+      const shareUrl = `${baseUrl}/profile/${profileId}`;
       
-      if (!userId) {
-        console.error('No user ID available for sharing');
-        setIsCopying(false);
-        return;
+      // Get display name based on user type
+      let profileName = '';
+      if (userType === 'student') {
+        profileName = user.fullName || user.name || 'Student';
+      } else if (userType === 'startup') {
+        profileName = user.companyName || user.name || 'Startup';
+      } else if (userType === 'club') {
+        profileName = user.clubName || user.name || 'Club';
       }
       
-      const url = `${window.location.origin}/profile/${userId}`;
-      setShareUrl(url);
+      // Create share message based on user type
+      let shareMessage = '';
+      if (userType === 'student') {
+        shareMessage = `Check out ${profileName}'s profile on StartupsNet`;
+      } else if (userType === 'startup') {
+        shareMessage = `Check out ${profileName} on StartupsNet`;
+      } else if (userType === 'club') {
+        shareMessage = `Check out ${profileName} on StartupsNet`;
+      }
       
-      navigator.clipboard.writeText(url).then(
-        () => {
-          setCopySuccess(true);
-          setIsCopying(false);
-          setTimeout(() => setCopySuccess(false), 3000);
-        },
-        (err) => {
-          console.error('Could not copy profile URL: ', err);
-          setIsCopying(false);
+      // Use navigator.share if available (mobile devices)
+      if (navigator.share) {
+        navigator.share({
+          title: shareMessage,
+          text: shareMessage,
+          url: shareUrl,
+        })
+          .then(() => showStatusNotification('Profile shared successfully!'))
+          .catch((error) => {
+            console.error('Error sharing profile:', error);
+            // Fall back to clipboard
+            copyToClipboard(shareUrl);
+          });
+      } else {
+        // Use clipboard API for desktop browsers
+        copyToClipboard(shareUrl);
+      }
+    } catch (error) {
+      console.error('Error sharing profile:', error);
+      showStatusNotification('Failed to share profile. Please try again.', true);
+    }
+  };
+  
+  // Helper function to copy text to clipboard
+  const copyToClipboard = (text) => {
+    try {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          showStatusNotification('Profile link copied to clipboard!');
+        })
+        .catch((error) => {
+          console.error('Clipboard write failed:', error);
+          showStatusNotification('Failed to copy link. Please try again.', true);
+        });
+    } catch (error) {
+      console.error('Clipboard API not available:', error);
+      
+      // Fallback for browsers that don't support clipboard API
+      const tempInput = document.createElement('input');
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      
+      try {
+        const success = document.execCommand('copy');
+        if (success) {
+          showStatusNotification('Profile link copied to clipboard!');
+        } else {
+          showStatusNotification('Failed to copy link. Please try again.', true);
         }
-      );
+      } catch (err) {
+        showStatusNotification('Failed to copy link. Please try again.', true);
+      }
+      
+      document.body.removeChild(tempInput);
     }
   };
 
@@ -835,7 +906,7 @@ export default function ProfilePage() {
       {/* Notification Banner */}
       {showNotification && (
         <div className={`fixed top-20 inset-x-0 z-50 flex justify-center items-center px-4`}>
-          <div className={`max-w-md w-full ${error ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'} border rounded-lg shadow-lg p-4 flex items-center justify-between`}>
+          <div className={`max-w-md w-full ${notificationIsError ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'} border rounded-lg shadow-lg p-4 flex items-center justify-between`}>
             <p>{notification}</p>
             <button 
               onClick={() => setShowNotification(false)}

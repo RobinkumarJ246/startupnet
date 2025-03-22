@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise, { connectDB } from '@/lib/mongodb';
+import { connectToDatabase } from '@/app/lib/db';
 import { ObjectId, GridFSBucket } from 'mongodb';
 
 /**
@@ -7,6 +7,8 @@ import { ObjectId, GridFSBucket } from 'mongodb';
  * Uses the user ID to fetch the image from GridFS
  */
 export async function GET(request, context) {
+  let client = null;
+  
   try {
     // Extract the id parameter correctly from context
     const userId = context.params.id;
@@ -21,13 +23,19 @@ export async function GET(request, context) {
       );
     }
 
-    const client = await clientPromise;
+    // Connect to MongoDB using the app-wide connection function
+    const { client: dbClient, db } = await connectToDatabase();
+    client = dbClient;
     
-    // Try both database names
-    const databases = ['users', 'just-ants'];
-    let files = [];
-    let bucket;
-    let db;
+    if (!client || !db) {
+      console.error('Failed to connect to database');
+      return NextResponse.json(
+        { error: 'Database connection failed' },
+        { status: 500 }
+      );
+    }
+    
+    console.log('Connected to database:', db.databaseName);
     
     // Enhanced MongoDB ID checking for different formats
     const searchCriteria = [];
@@ -56,39 +64,58 @@ export async function GET(request, context) {
     let userType = null;
     let foundUser = null;
     
-    for (const dbName of databases) {
+    for (const collectionName of collections) {
       try {
-        const testDb = client.db(dbName);
-        for (const collectionName of collections) {
-          try {
-            const collection = testDb.collection(collectionName);
-            // Try different ID formats
-            const possibleIds = [userId];
-            if (ObjectId.isValid(userId)) {
-              possibleIds.push(new ObjectId(userId));
-            }
-            
-            for (const id of possibleIds) {
-              const user = await collection.findOne({ _id: id });
-              if (user) {
-                foundUser = user;
-                userType = collectionName === 'students' ? 'student' 
-                          : collectionName === 'startups' ? 'startup' 
-                          : 'club';
-                console.log(`Found user in ${dbName}.${collectionName}, type: ${userType}`);
-                // Add userType to search criteria
-                searchCriteria.push({ 'metadata.userType': userType });
-                break;
-              }
-            }
-            if (foundUser) break;
-          } catch (err) {
-            console.warn(`Error checking collection ${collectionName} in ${dbName}:`, err.message);
+        const collection = db.collection(collectionName);
+        
+        // Try different ID formats
+        const possibleIds = [userId];
+        if (ObjectId.isValid(userId)) {
+          possibleIds.push(new ObjectId(userId));
+        }
+        
+        for (const id of possibleIds) {
+          const user = await collection.findOne({ _id: id });
+          if (user) {
+            foundUser = user;
+            userType = collectionName === 'students' ? 'student' 
+                      : collectionName === 'startups' ? 'startup' 
+                      : 'club';
+            console.log(`Found user in ${db.databaseName}.${collectionName}, type: ${userType}`);
+            // Add userType to search criteria
+            searchCriteria.push({ 'metadata.userType': userType });
+            break;
           }
         }
         if (foundUser) break;
       } catch (err) {
-        console.warn(`Error accessing database ${dbName}:`, err.message);
+        console.warn(`Error checking collection ${collectionName}:`, err.message);
+      }
+    }
+    
+    // If user not found in primary collections, try looking in the user collection
+    if (!foundUser) {
+      try {
+        const usersCollection = db.collection('users');
+        const possibleIds = [userId];
+        if (ObjectId.isValid(userId)) {
+          possibleIds.push(new ObjectId(userId));
+        }
+        
+        for (const id of possibleIds) {
+          const user = await usersCollection.findOne({ _id: id });
+          if (user) {
+            foundUser = user;
+            userType = user.type || 'unknown';
+            console.log(`Found user in users collection, type: ${userType}`);
+            if (user.type) {
+              searchCriteria.push({ 'metadata.userType': user.type });
+            }
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn('Error checking users collection:', err.message);
       }
     }
     
@@ -106,45 +133,39 @@ export async function GET(request, context) {
       }
     }
     
-    for (const dbName of databases) {
+    // Initialize GridFS bucket
+    const bucket = new GridFSBucket(db, {
+      bucketName: 'profileImages'
+    });
+    
+    // Try all search criteria
+    let files = [];
+    for (const criteria of searchCriteria) {
       try {
-        console.log(`Checking database ${dbName} for user image`);
-        db = client.db(dbName);
+        // Check if image exists
+        const foundFiles = await bucket.find(criteria).toArray();
         
-        // Fix: Use GridFSBucket directly
-        bucket = new GridFSBucket(db, {
-          bucketName: 'profileImages'
-        });
-
-        // Try all search criteria
-        for (const criteria of searchCriteria) {
-          // Check if image exists
-          const foundFiles = await bucket.find(criteria).toArray();
-          
-          console.log(`Found ${foundFiles.length} files in ${dbName} with criteria:`, JSON.stringify(criteria, null, 2));
-          
-          if (foundFiles.length > 0) {
-            console.log('File details:', foundFiles.map(f => ({
-              _id: f._id.toString(),
-              filename: f.filename,
-              metadata: f.metadata,
-              uploadDate: f.uploadDate
-            })));
-            files = foundFiles;
-            break;
-          }
+        console.log(`Found ${foundFiles.length} files with criteria:`, JSON.stringify(criteria, null, 2));
+        
+        if (foundFiles.length > 0) {
+          console.log('File details:', foundFiles.map(f => ({
+            _id: f._id.toString(),
+            filename: f.filename,
+            metadata: f.metadata,
+            uploadDate: f.uploadDate
+          })));
+          files = foundFiles;
+          break;
         }
-        
-        if (files.length > 0) break;
       } catch (err) {
-        console.error(`Error checking ${dbName} for images:`, err);
+        console.warn(`Error checking criteria ${JSON.stringify(criteria)}:`, err.message);
       }
     }
     
-    // Check other buckets if needed for student and club accounts
-    if (files.length === 0 && (userType === 'student' || userType === 'club')) {
-      const alternateBuckets = ['images', 'uploads', 'fs', 'avatars'];
-      
+    // Check other buckets if needed
+    const alternateBuckets = ['images', 'uploads', 'fs', 'avatars'];
+    
+    if (files.length === 0) {
       for (const bucketName of alternateBuckets) {
         try {
           console.log(`Checking alternate bucket: ${bucketName}`);
@@ -170,110 +191,108 @@ export async function GET(request, context) {
     if (files.length === 0) {
       console.log('No image found for user:', userId, 'type:', userType);
       
-      // Return default image for student and club accounts
-      if (userType === 'student' || userType === 'club') {
-        console.log(`Returning default image for ${userType}`);
+      // Return default image for all account types
+      console.log(`Returning default image for ${userType || 'unknown'} type`);
+      
+      // Return a default image based on type
+      const defaultPath = `public/defaults/default-${userType || 'user'}.png`;
+      
+      try {
+        // Try to read the default image from filesystem
+        const fs = require('fs');
+        const path = require('path');
+        const defaultImagePath = path.join(process.cwd(), defaultPath);
         
-        // Return a default image for these account types
-        // Updated path to the defaults directory we created
-        const defaultPath = `public/defaults/default-${userType}.png`;
-        
-        try {
-          // Try to read the default image from filesystem
-          const fs = require('fs');
-          const path = require('path');
-          const defaultImagePath = path.join(process.cwd(), defaultPath);
-          
-          if (fs.existsSync(defaultImagePath)) {
-            const buffer = fs.readFileSync(defaultImagePath);
-            return new NextResponse(buffer, {
-              headers: {
-                'Content-Type': 'image/png',
-                'Cache-Control': 'public, max-age=3600'
-              }
-            });
-          } else {
-            console.log(`Default image not found at ${defaultImagePath}, creating placeholder`);
-            
-            // Creating placeholder image data - a simple colored square with text
-            const { createCanvas } = require('canvas');
-            const canvas = createCanvas(200, 200);
-            const ctx = canvas.getContext('2d');
-            
-            // Fill background based on user type
-            ctx.fillStyle = userType === 'student' ? '#4B5563' : '#3B82F6';
-            ctx.fillRect(0, 0, 200, 200);
-            
-            // Add text
-            ctx.font = 'bold 24px Arial';
-            ctx.fillStyle = 'white';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // Get first letter of name or email if available
-            let initial = '?';
-            if (foundUser) {
-              if (foundUser.name) initial = foundUser.name.charAt(0).toUpperCase();
-              else if (foundUser.email) initial = foundUser.email.charAt(0).toUpperCase();
-            }
-            
-            ctx.fillText(initial, 100, 100);
-            
-            // Save the generated image for future use
-            try {
-              // Ensure directory exists
-              if (!fs.existsSync(path.dirname(defaultImagePath))) {
-                fs.mkdirSync(path.dirname(defaultImagePath), { recursive: true });
-              }
-              fs.writeFileSync(defaultImagePath, canvas.toBuffer());
-            } catch (saveErr) {
-              console.warn('Could not save generated image:', saveErr.message);
-            }
-            
-            // Return the generated image
-            const buffer = canvas.toBuffer();
-            return new NextResponse(buffer, {
-              headers: {
-                'Content-Type': 'image/png',
-                'Cache-Control': 'public, max-age=3600'
-              }
-            });
-          }
-        } catch (err) {
-          console.warn('Could not create default image:', err.message);
-          
-          // Simple fallback - return a basic SVG as default image
-          const initialLetter = foundUser && foundUser.name ? foundUser.name.charAt(0).toUpperCase() : '?';
-          const bgColor = userType === 'student' ? '4B5563' : '3B82F6';
-          
-          // Create a simple SVG with the initial letter
-          const svgContent = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-              <rect width="200" height="200" fill="#${bgColor}"/>
-              <text x="100" y="115" font-family="Arial" font-size="90" font-weight="bold" fill="white" text-anchor="middle">${initialLetter}</text>
-            </svg>
-          `;
-          
-          return new NextResponse(svgContent, {
+        if (fs.existsSync(defaultImagePath)) {
+          const buffer = fs.readFileSync(defaultImagePath);
+          return new NextResponse(buffer, {
             headers: {
-              'Content-Type': 'image/svg+xml',
+              'Content-Type': 'image/png',
+              'Cache-Control': 'public, max-age=3600'
+            }
+          });
+        } else {
+          console.log(`Default image not found at ${defaultImagePath}, creating placeholder`);
+          
+          // Creating placeholder image data - a simple colored square with text
+          const { createCanvas } = require('canvas');
+          const canvas = createCanvas(200, 200);
+          const ctx = canvas.getContext('2d');
+          
+          // Fill background based on user type
+          ctx.fillStyle = userType === 'student' ? '#4B5563' : 
+                        userType === 'startup' ? '#047857' :
+                        userType === 'club' ? '#3B82F6' : '#6B7280';
+          ctx.fillRect(0, 0, 200, 200);
+          
+          // Add text
+          ctx.font = 'bold 24px Arial';
+          ctx.fillStyle = 'white';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          // Get first letter of name or email if available
+          let initial = '?';
+          if (foundUser) {
+            if (foundUser.name) initial = foundUser.name.charAt(0).toUpperCase();
+            else if (foundUser.email) initial = foundUser.email.charAt(0).toUpperCase();
+          }
+          
+          ctx.fillText(initial, 100, 100);
+          
+          // Save the generated image for future use
+          try {
+            // Ensure directory exists
+            if (!fs.existsSync(path.dirname(defaultImagePath))) {
+              fs.mkdirSync(path.dirname(defaultImagePath), { recursive: true });
+            }
+            fs.writeFileSync(defaultImagePath, canvas.toBuffer());
+          } catch (saveErr) {
+            console.warn('Could not save generated image:', saveErr.message);
+          }
+          
+          // Return the generated image
+          const buffer = canvas.toBuffer();
+          return new NextResponse(buffer, {
+            headers: {
+              'Content-Type': 'image/png',
               'Cache-Control': 'public, max-age=3600'
             }
           });
         }
+      } catch (err) {
+        console.warn('Could not create default image:', err.message);
+        
+        // Simple fallback - return a basic SVG as default image
+        const initialLetter = foundUser && foundUser.name ? foundUser.name.charAt(0).toUpperCase() : '?';
+        
+        // Color based on user type
+        const bgColor = userType === 'student' ? '4B5563' : 
+                      userType === 'startup' ? '047857' :
+                      userType === 'club' ? '3B82F6' : '6B7280';
+        
+        // Create a simple SVG with the initial letter
+        const svgContent = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+            <rect width="200" height="200" fill="#${bgColor}"/>
+            <text x="100" y="115" font-family="Arial" font-size="90" font-weight="bold" fill="white" text-anchor="middle">${initialLetter}</text>
+          </svg>
+        `;
+        
+        return new NextResponse(svgContent, {
+          headers: {
+            'Content-Type': 'image/svg+xml',
+            'Cache-Control': 'public, max-age=3600'
+          }
+        });
       }
-      
-      return NextResponse.json(
-        { error: 'Image not found' },
-        { status: 404 }
-      );
     }
 
     // Sort files by uploadDate to get the most recent one
     const sortedFiles = files.sort((a, b) => b.uploadDate - a.uploadDate);
     const latestFile = sortedFiles[0];
     
-    console.log('Found image:', {
+    console.log('Using image:', {
       id: latestFile._id.toString(),
       filename: latestFile.filename,
       uploadDate: latestFile.uploadDate
@@ -328,5 +347,7 @@ export async function GET(request, context) {
       { error: 'Failed to retrieve profile image: ' + error.message },
       { status: 500 }
     );
+  } finally {
+    // No need to close client as it's managed by connectToDatabase
   }
 }
