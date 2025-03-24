@@ -39,20 +39,31 @@ export async function connectToDatabase() {
     const options = {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
-      // Use these TLS/SSL options conditionally
-      ...(process.env.NODE_ENV === 'production' ? {
+      connectTimeoutMS: 10000,
+    };
+    
+    // Add environment-specific options
+    if (process.env.NODE_ENV === 'production') {
+      // Production settings
+      Object.assign(options, {
         ssl: true,
         tls: true,
         tlsCAFile: process.env.MONGODB_CA_FILE,
         tlsAllowInvalidCertificates: false,
         tlsAllowInvalidHostnames: false,
-      } : {
-        // Development settings
+      });
+    } else {
+      // Development settings
+      Object.assign(options, {
         ssl: false,
         tls: false,
-        directConnection: true,
-      })
-    };
+      });
+      
+      // Only use directConnection for non-SRV URIs
+      if (uri && !uri.includes('mongodb+srv')) {
+        options.directConnection = true;
+      }
+    }
 
     const client = new MongoClient(uri, options);
     await client.connect();

@@ -1,7 +1,10 @@
-import { connectDB } from '@/lib/mongodb';
+import { connectToDatabase } from '@/app/lib/db';
 import { isEmail } from 'validator';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import emailService from '@/app/lib/email';
+import { generateVerificationToken } from '@/app/lib/verification';
+import { ObjectId } from 'mongodb';
 
 const validateFormData = (data) => {
   console.log('Validating form data:', JSON.stringify(data, null, 2));
@@ -64,13 +67,14 @@ export async function POST(request) {
     
     // Connect to MongoDB
     console.log('Connecting to MongoDB...');
-    const db = await connectDB();
+    const { client } = await connectToDatabase();
+    const db = client.db();
     console.log('MongoDB connection established');
     
     // Check if email already exists
     console.log('Checking if email exists:', data.email);
-    const existingClub = await db.collection("clubs").findOne({ email: data.email });
-    if (existingClub) {
+    const existingUser = await db.collection("clubs").findOne({ email: data.email });
+    if (existingUser) {
       console.log('Email already exists in database');
       return NextResponse.json(
         { errors: { email: "Email is already registered" } }, 
@@ -89,6 +93,7 @@ export async function POST(request) {
       ...clubDataToStore,
       password: hashedPassword,
       role: 'club',
+      emailVerified: false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -98,13 +103,36 @@ export async function POST(request) {
     console.log('Inserting club into database...');
     const result = await db.collection("clubs").insertOne(newClub);
     console.log('Club inserted successfully with ID:', result.insertedId);
+    
+    // Add the ID to the club object
+    newClub._id = result.insertedId;
+    
+    try {
+      console.log('Generating verification token...');
+      // Generate verification token
+      const verificationToken = await generateVerificationToken(newClub, 'club');
+      
+      console.log('Sending verification email...');
+      // Send verification email
+      await emailService.sendVerificationEmail({
+        email: newClub.email,
+        name: newClub.clubName,
+        verificationToken,
+        userType: 'club'
+      });
+      
+      console.log(`Verification email sent to ${newClub.email}`);
+    } catch (emailError) {
+      console.error('Error sending verification email:', emailError);
+      // Continue with registration despite email error
+    }
 
     // Return the club data without the password
     const { password, ...clubWithoutPassword } = newClub;
     
     console.log('Sending successful response');
     return NextResponse.json({
-      message: "Registration successful",
+      message: "Registration successful. Please check your email to verify your account.",
       club: clubWithoutPassword,
       id: result.insertedId
     }, { status: 201 });

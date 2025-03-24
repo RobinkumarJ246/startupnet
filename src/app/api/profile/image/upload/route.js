@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise, { connectDB } from '@/lib/mongodb';
+import { connectToDatabase } from '@/app/lib/db';
 import { ObjectId, GridFSBucket } from 'mongodb';
 
 /**
@@ -91,7 +91,7 @@ export async function POST(request) {
     const buffer = await file.arrayBuffer();
 
     // Connect to MongoDB
-    const client = await clientPromise;
+    const { client } = await connectToDatabase();
     
     // Try to use both databases
     const databases = ['users', 'just-ants'];

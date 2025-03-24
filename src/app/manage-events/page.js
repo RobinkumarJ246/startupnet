@@ -48,7 +48,12 @@ const ManageEventsPage = () => {
       tags: ['ai', 'web', 'blockchain'],
       prizePool: 50000,
       visibility: 'public',
-      createdAt: '2024-03-10T14:30:00'
+      createdAt: '2024-03-10T14:30:00',
+      applications: 85,
+      approvedApplications: 78,
+      registrationOpen: true,
+      pendingTasks: 3,
+      hasSubmissions: false
     },
     {
       id: 'hack-2',
@@ -84,7 +89,13 @@ const ManageEventsPage = () => {
       tags: ['blockchain', 'web3', 'fintech'],
       prizePool: 100000,
       visibility: 'public',
-      createdAt: '2024-02-28T11:20:00'
+      createdAt: '2024-02-28T11:20:00',
+      applications: 142,
+      approvedApplications: 120,
+      registrationOpen: false,
+      pendingTasks: 0,
+      hasSubmissions: true,
+      submissionsCount: 45
     },
     {
       id: 'hack-4',
@@ -102,7 +113,18 @@ const ManageEventsPage = () => {
       tags: ['mobile', 'ui', 'ux'],
       prizePool: 60000,
       visibility: 'public',
-      createdAt: '2024-01-20T16:15:00'
+      createdAt: '2024-01-20T16:15:00',
+      applications: 90,
+      approvedApplications: 85,
+      registrationOpen: false,
+      pendingTasks: 0,
+      hasSubmissions: true,
+      submissionsCount: 80,
+      winners: [
+        {id: 'team-1', name: 'MobileMasters', prize: 'First Place', amount: 30000},
+        {id: 'team-2', name: 'AppVision', prize: 'Second Place', amount: 20000},
+        {id: 'team-3', name: 'CodeCrafters', prize: 'Third Place', amount: 10000}
+      ]
     },
     {
       id: 'hack-5',
@@ -273,6 +295,151 @@ const ManageEventsPage = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const EventActionMenu = ({ event, onEdit, onDelete, onManage }) => {
+    const [showMenu, setShowMenu] = useState(false);
+    
+    return (
+      <div className="relative">
+        <button 
+          onClick={() => setShowMenu(!showMenu)}
+          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full focus:outline-none"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+        </button>
+        
+        {showMenu && (
+          <div 
+            className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-100"
+            onMouseLeave={() => setShowMenu(false)}
+          >
+            <div className="py-1">
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  onManage(event);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Manage Event
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  onEdit(event);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Event
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  window.open(`/events/${event.id}`, '_blank');
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Public Page
+              </button>
+              
+              <hr className="my-1 border-gray-200" />
+              
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  onDelete(event);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Event
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleManageEvent = (event) => {
+    router.push(`/manage-events/${event.id}`);
+  };
+
+  const handleEditEvent = (event) => {
+    if (event.type === 'hackathon') {
+      router.push(`/host-event/hackathon?edit=${event.id}`);
+    } else {
+      router.push(`/host-event?edit=${event.id}`);
+    }
+  };
+
+  const EventStatCard = ({ icon, title, value, className = "" }) => (
+    <div className={`flex flex-col space-y-1 ${className}`}>
+      <div className="flex items-center text-gray-500 text-sm">
+        {icon}
+        <span className="ml-1.5">{title}</span>
+      </div>
+      <p className="font-medium text-lg text-gray-900">{value}</p>
+    </div>
+  );
+
+  const DashboardMetrics = ({ events }) => {
+    // Calculate metrics
+    const totalEvents = events.length;
+    const activeEvents = events.filter(e => e.status === 'active').length;
+    const upcomingEvents = events.filter(e => e.status === 'upcoming').length;
+    const completedEvents = events.filter(e => e.status === 'completed').length;
+    const totalParticipants = events.reduce((sum, event) => sum + event.participants, 0);
+    
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 mb-8">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+          <EventStatCard 
+            icon={<Calendar className="h-4 w-4" />}
+            title="Total Events"
+            value={totalEvents}
+          />
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+          <EventStatCard 
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            title="Active Events"
+            value={activeEvents}
+          />
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+          <EventStatCard 
+            icon={<Clock className="h-4 w-4" />}
+            title="Upcoming Events"
+            value={upcomingEvents}
+          />
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+          <EventStatCard 
+            icon={<Trophy className="h-4 w-4" />}
+            title="Completed Events"
+            value={completedEvents}
+          />
+        </div>
+        
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+          <EventStatCard 
+            icon={<Users className="h-4 w-4" />}
+            title="Total Participants"
+            value={totalParticipants}
+          />
+        </div>
+      </div>
+    );
   };
 
   if (!userType || (userType !== 'startup' && userType !== 'club')) {
@@ -638,13 +805,12 @@ const ManageEventsPage = () => {
                       </Link>
                     </div>
                     
-                    <button 
-                      onClick={() => handleDeleteEvent(event)}
-                      className="inline-flex items-center px-3 py-1.5 bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </button>
+                    <EventActionMenu 
+                      event={event}
+                      onEdit={handleEditEvent}
+                      onDelete={handleDeleteEvent}
+                      onManage={handleManageEvent}
+                    />
                   </div>
                 </div>
               </div>
@@ -703,7 +869,7 @@ const ManageEventsPage = () => {
         }
         
         .bg-grid-white {
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23FFFFFF' fill-opacity='0.1'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3Cpath d='M6 5V0H5v5H0v1h5v94h1V6h94V5H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23FFFFFF' fill-opacity='0.1'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3Cpath d='M6 5V0H5v5H0v1h5v94h1V6h94V5H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
         }
       `}</style>
     </div>

@@ -34,7 +34,10 @@ import {
   Clock,
   Check,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  ArrowLeftRight,
+  CreditCard,
+  Clipboard
 } from 'lucide-react';
 import Navbar from '../components/landing/Navbar';
 import EditProfileModal from '../components/profile/EditProfileModal';
@@ -43,6 +46,7 @@ import { useAuth } from '../lib/auth/AuthContext';
 import { ProfileSkeleton } from '../components/shared/SkeletonLoader';
 import AccountSettingsModal from '../components/profile/AccountSettingsModal';
 import { FaUserCircle, FaEdit, FaCog, FaShare } from 'react-icons/fa';
+import VerificationPrompt from './VerificationPrompt';
 
 // About Section
 function AboutSection({ user }) {
@@ -1006,6 +1010,13 @@ export default function ProfilePage() {
                 Deep Refresh
               </button>
               <button
+                onClick={() => setShowAccountSettingsModal(true)}
+                className="px-4 py-2 text-gray-600 bg-gray-50 rounded-lg flex items-center hover:bg-gray-100 transition-colors"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Account Settings
+              </button>
+              <button
                 onClick={handleEditProfile}
                 className="px-4 py-2 text-white bg-indigo-600 rounded-lg flex items-center hover:bg-indigo-700 transition-colors"
               >
@@ -1089,7 +1100,8 @@ export default function ProfilePage() {
           isOpen={showAccountSettingsModal}
           onClose={() => setShowAccountSettingsModal(false)}
           onPasswordChanged={() => {
-            // Optional: Add any additional actions after password change
+            showStatusNotification("Password successfully updated!", false);
+            setShowAccountSettingsModal(false);
           }}
           onAccountDeleted={handleAccountDeleted}
         />
@@ -1106,6 +1118,9 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Add the verification prompt here */}
+      <VerificationPrompt user={userData} userType={userData.type} />
     </main>
   );
 } 

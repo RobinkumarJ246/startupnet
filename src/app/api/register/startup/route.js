@@ -1,7 +1,10 @@
-import { connectDB } from '@/lib/mongodb';
+import { connectToDatabase } from '@/app/lib/db';
 import { isEmail } from 'validator';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import emailService from '@/app/lib/email';
+import { generateVerificationToken } from '@/app/lib/verification';
+import { ObjectId } from 'mongodb';
 
 const validateFormData = (data) => {
   const errors = {};
@@ -37,11 +40,12 @@ export async function POST(request) {
     const hashedPassword = await bcrypt.hash(data.password, salt);
     
     // Connect to MongoDB
-    const db = await connectDB();
+    const { client } = await connectToDatabase();
+    const db = client.db();
     
     // Check if email already exists
-    const existingStartup = await db.collection("startups").findOne({ email: data.email });
-    if (existingStartup) {
+    const existingUser = await db.collection("startups").findOne({ email: data.email });
+    if (existingUser) {
       return NextResponse.json(
         { errors: { email: "Email is already registered" } }, 
         { status: 400 }
@@ -57,18 +61,40 @@ export async function POST(request) {
       ...startupDataToStore,
       password: hashedPassword,
       role: 'startup',
+      emailVerified: false,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
     // Insert the startup into the database
     const result = await db.collection("startups").insertOne(newStartup);
+    
+    // Add the ID to the startup object
+    newStartup._id = result.insertedId;
+    
+    try {
+      // Generate verification token
+      const verificationToken = await generateVerificationToken(newStartup, 'startup');
+      
+      // Send verification email
+      await emailService.sendVerificationEmail({
+        email: newStartup.email,
+        name: newStartup.companyName,
+        verificationToken,
+        userType: 'startup'
+      });
+      
+      console.log(`Verification email sent to ${newStartup.email}`);
+    } catch (emailError) {
+      console.error('Error sending verification email:', emailError);
+      // Continue with registration despite email error
+    }
 
     // Return the startup data without the password
     const { password, ...startupWithoutPassword } = newStartup;
     
     return NextResponse.json({
-      message: "Registration successful",
+      message: "Registration successful. Please check your email to verify your account.",
       startup: startupWithoutPassword,
       id: result.insertedId
     }, { status: 201 });

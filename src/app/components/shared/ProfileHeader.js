@@ -1,10 +1,19 @@
 import React from 'react';
 import { UserType } from '@/app/lib/types';
 import Image from 'next/image';
+import { CheckCircle, User, Building, Users, BadgeCheck, ShieldAlert } from 'lucide-react';
 
 const ProfileHeader = ({ user, userType }) => {
-  const hasProfilePic = user?.hasProfilePic ?? false;
-  const imageAlt = `${user?.fullName || user?.companyName || user?.clubName || 'User'}'s profile picture`;
+  const hasProfilePic = !!user?.profileImageUrl || !!user?.profilePic || !!user?.logo;
+  const isEmailVerified = !!user?.emailVerified;
+  
+  const displayName = 
+    userType === UserType.STUDENT ? user?.fullName : 
+    userType === UserType.STARTUP ? user?.companyName :
+    userType === UserType.CLUB ? user?.clubName : 
+    'User';
+
+  const imageAlt = `${displayName}'s profile picture`;
 
   return (
     <div className="flex flex-col items-center justify-center w-full">
@@ -70,16 +79,29 @@ const ProfileHeader = ({ user, userType }) => {
         )}
       </div>
       <div className="mt-4 text-center">
-        <h1 className="text-xl font-semibold">
-          {userType === UserType.STUDENT && user?.fullName}
-          {userType === UserType.STARTUP && user?.companyName}
-          {userType === UserType.CLUB && user?.clubName}
-        </h1>
+        <div className="flex items-center justify-center">
+          <h1 className="text-xl font-semibold">
+            {displayName}
+          </h1>
+          {isEmailVerified && (
+            <div className="ml-2 text-blue-500 flex items-center" title="Email Verified">
+              <CheckCircle size={16} className="text-blue-500" />
+            </div>
+          )}
+        </div>
         <p className="text-gray-600">
           {userType === UserType.STUDENT && user?.major}
           {userType === UserType.STARTUP && user?.industry}
           {userType === UserType.CLUB && user?.university}
         </p>
+        {isEmailVerified && (
+          <div className="mt-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              <CheckCircle size={12} className="mr-1" />
+              Verified Email
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

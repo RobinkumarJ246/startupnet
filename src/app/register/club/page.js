@@ -265,16 +265,22 @@ export default function ClubRegistration() {
         body: JSON.stringify(formDataForAPI),
       });
       
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        console.error('Failed to parse response JSON:', e);
+        data = {};
+      }
       
       if (!response.ok) {
         console.error('Registration failed:', data);
         
-        if (data.errors) {
+        if (data && data.errors) {
           setFormErrors(data.errors);
         } else {
           setFormErrors({
-            submit: data.message || 'Registration failed. Please try again.'
+            submit: (data && data.message) || `Registration failed: ${response.status} ${response.statusText || 'Unknown error'}`
           });
         }
         setLoading(false);
@@ -317,10 +323,11 @@ export default function ClubRegistration() {
           });
           
           if (!imageResponse.ok) {
-            const errorData = await imageResponse.json();
+            const errorData = await imageResponse.json().catch(e => ({}));
             console.error('Failed to upload profile image:', errorData);
           } else {
-            console.log('Profile image uploaded successfully');
+            const imageData = await imageResponse.json().catch(e => {});
+            console.log('Profile image uploaded successfully', imageData ? `: ${JSON.stringify(imageData)}` : '');
           }
         } catch (imageError) {
           console.error('Error uploading profile image:', imageError);
@@ -333,8 +340,8 @@ export default function ClubRegistration() {
         });
       }
       
-      // Navigate directly to profile page instead of success page
-      router.push('/profile');
+      // Navigate directly to registration-success page instead of profile page
+      router.push('/registration-success');
     } catch (error) {
       console.error('Registration error:', error);
       setFormErrors({

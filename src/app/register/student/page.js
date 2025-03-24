@@ -187,12 +187,14 @@ export default function StudentRegistration() {
       });
       
       if (!response.ok) {
-        const errorResponse = await response.json();
+        const errorResponse = await response.json().catch(e => ({}));
         console.error('Error response:', errorResponse);
-        if (errorResponse.errors) {
+        if (errorResponse && errorResponse.errors) {
           setFormErrors(errorResponse.errors);
         } else {
-          throw new Error(`Network response was not ok: ${response.status}`);
+          setFormErrors({
+            submit: `Failed to register: ${response.status} ${response.statusText || 'Unknown error'}`
+          });
         }
         setLoading(false);
         return;
@@ -234,10 +236,11 @@ export default function StudentRegistration() {
           });
           
           if (!imageResponse.ok) {
-            const errorData = await imageResponse.json();
+            const errorData = await imageResponse.json().catch(e => ({}));
             console.error('Failed to upload profile image:', errorData);
           } else {
-            console.log('Profile image uploaded successfully');
+            const imageData = await imageResponse.json().catch(e => {});
+            console.log('Profile image uploaded successfully', imageData ? `: ${JSON.stringify(imageData)}` : '');
           }
         } catch (imageError) {
           console.error('Error uploading profile image:', imageError);
@@ -250,8 +253,8 @@ export default function StudentRegistration() {
         });
       }
       
-      // Navigate to profile page instead of success page since we're already logged in
-      router.push('/profile');
+      // Navigate to the verification page to show email verification options
+      router.push('/registration-success');
     } catch (error) {
       console.error('Registration error:', error);
       setFormErrors({

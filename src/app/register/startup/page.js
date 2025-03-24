@@ -273,11 +273,14 @@ export default function StartupRegistration() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.errors) {
+        const errorData = await response.json().catch(e => ({}));
+        console.error('Error response:', errorData);
+        if (errorData && errorData.errors) {
           setFormErrors(errorData.errors);
         } else {
-          throw new Error(`Network response was not ok: ${response.status}`);
+          setFormErrors({
+            submit: `Failed to register: ${response.status} ${response.statusText || 'Unknown error'}`
+          });
         }
         setLoading(false);
         return;
@@ -320,11 +323,11 @@ export default function StartupRegistration() {
           });
           
           if (!logoResponse.ok) {
-            const errorData = await logoResponse.json();
+            const errorData = await logoResponse.json().catch(e => ({}));
             console.error('Failed to upload logo but user was registered:', errorData);
           } else {
-            const logoData = await logoResponse.json();
-            console.log('Logo uploaded successfully:', logoData);
+            const logoData = await logoResponse.json().catch(e => {});
+            console.log('Logo uploaded successfully', logoData ? `: ${JSON.stringify(logoData)}` : '');
           }
         } catch (logoError) {
           console.error('Error uploading logo:', logoError);
@@ -337,8 +340,8 @@ export default function StartupRegistration() {
         });
       }
       
-      // Navigate to profile page instead of success page since we're already logged in
-      router.push('/profile');
+      // Navigate to registration-success page instead of profile page since we're already logged in
+      router.push('/registration-success');
     } catch (error) {
       console.error('Registration error:', error);
       setFormErrors({
