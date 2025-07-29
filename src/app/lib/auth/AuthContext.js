@@ -1,5 +1,4 @@
 'use client';
-
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -21,7 +20,10 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const router = useRouter();
-
+  
+  // API base URL - replace with your actual backend URL
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5005';
+  
   // Get stored user data directly from localStorage
   const getStoredUser = () => {
     try {
@@ -34,7 +36,17 @@ export function AuthProvider({ children }) {
     }
     return null;
   };
-
+  
+  // Get stored token
+  const getStoredToken = () => {
+    try {
+      return localStorage.getItem('token');
+    } catch (error) {
+      console.error('Error getting stored token:', error);
+      return null;
+    }
+  };
+  
   // Load user from localStorage on app init
   useEffect(() => {
     const loadUserFromStorage = async () => {
@@ -57,35 +69,40 @@ export function AuthProvider({ children }) {
         console.error('Error loading user data:', error);
         // Clear corrupted user data
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
       } finally {
         setLoading(false);
         setInitialLoadComplete(true);
       }
     };
-
+    
     loadUserFromStorage();
   }, []);
-
+  
   // Login function
   const login = async (email, password, userType) => {
     try {
       setLoading(true);
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password, userType }),
       });
-
+      
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || 'Login failed');
       }
-
+      
       const data = await response.json();
       
-      // Store user data in localStorage
+      // Store token and user data in localStorage
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
         setUser(data.user);
@@ -99,25 +116,24 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   };
-
+  
   // Logout function
   const logout = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/auth/logout', {
+      const token = getStoredToken();
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { Authorization: `Bearer ${token}` }),
         },
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Logout failed');
-      }
-
-      // Clear user data from localStorage
+      
+      // Even if logout fails on server, clear local data
       localStorage.removeItem('user');
+      localStorage.removeItem('token');
       setUser(null);
       
       // Redirect to home page
@@ -126,12 +142,17 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (error) {
       console.error('Logout error:', error);
+      // Still clear local data even if server request fails
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      setUser(null);
+      router.push('/');
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
     }
   };
-
+  
   // Refresh user data from localStorage
   const refreshUser = () => {
     try {
@@ -146,20 +167,28 @@ export function AuthProvider({ children }) {
     }
     return null;
   };
-
-  // Add a validateSession function to verify auth status with the server
+  
+  // Validate session with server
   const validateSession = async () => {
     try {
       console.log('Validating session...');
-      const response = await fetch('/api/auth/validate', {
+      const token = getStoredToken();
+      
+      if (!token) {
+        localStorage.removeItem('user');
+        setUser(null);
+        return false;
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/validate`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        // Add cache control to prevent browser caching
         cache: 'no-store',
       });
-
+      
       console.log('Validation response status:', response.status);
       
       if (!response.ok) {
@@ -174,12 +203,13 @@ export function AuthProvider({ children }) {
         // For auth failures (401, 403), clear local state
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem('user');
+          localStorage.removeItem('token');
           setUser(null);
         }
         
         return false;
       }
-
+      
       // Get the latest user data from server
       const data = await response.json();
       console.log('Validation successful, received user data');
@@ -198,7 +228,7 @@ export function AuthProvider({ children }) {
       return false;
     }
   };
-
+  
   // Create the context value object
   const value = {
     user,
@@ -210,7 +240,7 @@ export function AuthProvider({ children }) {
     validateSession,
     getStoredUser,
   };
-
+  
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
