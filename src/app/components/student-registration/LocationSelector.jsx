@@ -21,20 +21,24 @@ export default function LocationSelector({
     const fetchCountries = async () => {
       try {
         setIsLoadingCountries(true);
-        const response = await fetch('https://restcountries.com/v3.1/all');
-        if (!response.ok) {
-          throw new Error('Failed to fetch countries');
-        }
-        const data = await response.json();
-        
-        // Sort countries alphabetically
-        const sortedCountries = data
-          .map(country => ({
-            name: country.name.common,
-            code: country.cca2
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        
+        const response = await fetch('https://countriesnow.space/api/v0.1/countries/positions');
+
+if (!response.ok) {
+  throw new Error('Failed to fetch countries');
+}
+
+const json = await response.json(); // Await the full JSON
+const data = json.data || [];       // Safely access the `data` field
+
+// Sort countries alphabetically
+const sortedCountries = data
+  .map(country => ({
+    name: country.name,
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+console.log(sortedCountries);
+
         // Ensure India is in the list (it should be, but just to be sure)
         const hasIndia = sortedCountries.some(country => country.name === 'India');
         if (!hasIndia) {
@@ -200,7 +204,7 @@ export default function LocationSelector({
           >
             <option value="">Select your country</option>
             {countries.map(country => (
-              <option key={country.code} value={country.name}>
+              <option key={country.name} value={country.name}>
                 {country.name}
               </option>
             ))}
